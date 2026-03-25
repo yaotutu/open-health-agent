@@ -2,7 +2,7 @@ import WebSocket from 'ws';
 import { TUI, Text, Editor, ProcessTerminal, Container } from '@mariozechner/pi-tui';
 import chalk from 'chalk';
 
-const WS_URL = process.env.WS_URL || 'ws://localhost:3000/ws';
+const WS_URL = process.env.WS_URL || 'ws://localhost:3001/ws';
 const sessionId = `tui-${Date.now()}`;
 
 // 连接 WebSocket

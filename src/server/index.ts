@@ -9,7 +9,7 @@ import { logger } from '../logger/index.js';
 // 加载环境变量
 config();
 
-const PORT = parseInt(process.env.PORT || '3000', 10);
+const PORT = parseInt(process.env.PORT || '3001', 10);
 const WORKSPACE_PATH = process.env.WORKSPACE_PATH || './workspace';
 
 // 创建存储
