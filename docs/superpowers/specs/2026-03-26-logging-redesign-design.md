@@ -10,7 +10,8 @@
 
 ## 目标
 
-- 开发调试时能看到所有 AgentEvent 详细日志
+- **所有关键操作都有日志**：Server、WebSocket、Session、Agent、Storage、AgentEvent 全覆盖
+- 开发调试时能看到详细日志
 - 支持日志级别控制（debug/info/warn/error）
 - 统一的结构化日志格式
 - 开发环境自动使用 pretty 格式，生产环境使用 JSON
@@ -42,9 +43,9 @@ LOG_LEVEL=info bun run start  # 正常运行
 LOG_LEVEL=warn bun run start  # 安静模式
 ```
 
-## AgentEvent 日志覆盖
+## 日志覆盖范围
 
-所有事件类型都会被记录：
+### 1. AgentEvent（Agent 事件）
 
 | 事件类型 | 日志级别 | 格式示例 |
 |---------|---------|---------|
@@ -58,6 +59,51 @@ LOG_LEVEL=warn bun run start  # 安静模式
 | `tool_execution_start` | info | `[tool] name=record, args={...}` |
 | `tool_execution_update` | debug | `[tool_update] partial=...` |
 | `tool_execution_end` | info | `[tool_end] name=record, error=false` |
+
+### 2. Server（服务器）
+
+| 操作 | 日志级别 | 格式示例 |
+|-----|---------|---------|
+| 服务器启动 | info | `[server] started on port 3001` |
+| 配置加载 | info | `[server] provider=anthropic, model=claude-sonnet` |
+| 健康检查 | debug | `[server] health check, sessions=2` |
+| 静态文件请求 | debug | `[server] GET /index.html 200` |
+| 404 错误 | warn | `[server] GET /unknown 404` |
+
+### 3. WebSocket（连接）
+
+| 操作 | 日志级别 | 格式示例 |
+|-----|---------|---------|
+| 客户端连接 | info | `[ws] client connected ip=127.0.0.1` |
+| 客户端断开 | info | `[ws] client disconnected` |
+| 收到消息 | debug | `[ws] received type=prompt sessionId=default` |
+| 发送消息 | debug | `[ws] sent type=event eventType=message_start` |
+| 连接错误 | error | `[ws] error: connection reset` |
+
+### 4. Session（会话）
+
+| 操作 | 日志级别 | 格式示例 |
+|-----|---------|---------|
+| 创建会话 | info | `[session] created id=default` |
+| 获取会话 | debug | `[session] get id=default` |
+| 删除会话 | info | `[session] removed id=default` |
+
+### 5. Storage（存储）
+
+| 操作 | 日志级别 | 格式示例 |
+|-----|---------|---------|
+| 记录数据 | info | `[storage] record type=血糖 value=120` |
+| 查询数据 | debug | `[storage] query type=血糖 days=7 limit=10` |
+| 读取文件 | debug | `[storage] read records.json count=15` |
+| 写入文件 | debug | `[storage] write records.json count=16` |
+| 存储错误 | error | `[storage] error: permission denied` |
+
+### 6. Agent（代理）
+
+| 操作 | 日志级别 | 格式示例 |
+|-----|---------|---------|
+| 创建 Agent | info | `[agent] created provider=anthropic model=claude-sonnet` |
+| 创建模型失败 | error | `[agent] failed to create model provider=xxx` |
 
 ## 使用方式
 
@@ -93,14 +139,26 @@ logger.error({ module: 'ws', err }, 'Connection failed');
 
 ## 文件变更
 
-1. **新增** `src/logger/config.ts` - 日志配置
-2. **重写** `src/logger/index.ts` - pino logger 实例
-3. **新增** `src/logger/formatters.ts` - AgentEvent 格式化函数
-4. **修改** `src/server/websocket.ts` - 使用新的 logAgentEvent
-5. **修改** `package.json` - 添加 pino 和 pino-pretty 依赖
+### 新增文件
+1. `src/logger/config.ts` - 日志配置（级别、格式）
+2. `src/logger/formatters.ts` - AgentEvent 格式化函数
+
+### 重写文件
+3. `src/logger/index.ts` - pino logger 实例
+
+### 修改文件（添加日志）
+4. `src/server/index.ts` - Server 启动、配置、HTTP 请求日志
+5. `src/server/websocket.ts` - WebSocket 连接、消息、事件日志
+6. `src/server/session.ts` - 会话创建、删除日志
+7. `src/storage/file-storage.ts` - 存储读写、查询日志
+8. `src/agent/index.ts` - Agent 创建日志
+9. `src/agent/tools/record.ts` - record 工具日志
+10. `src/agent/tools/query.ts` - query 工具日志
+11. `package.json` - 添加 pino 和 pino-pretty 依赖
 
 ## 防止未来问题
 
 1. **统一入口**：所有日志必须通过 `logger` 模块，禁止直接使用 `console.log`
 2. **事件全覆盖**：`logAgentEvent` 函数必须处理所有 AgentEvent 类型，新增事件类型时强制更新
-3. **类型安全**：使用 TypeScript 确保 AgentEvent 类型完整性
+3. **关键操作必记**：新功能的关键操作必须添加日志
+4. **类型安全**：使用 TypeScript 确保 AgentEvent 类型完整性
