@@ -1,6 +1,6 @@
 import { Agent } from '@mariozechner/pi-agent-core';
-import { getModel, streamSimple } from '@mariozechner/pi-ai';
-import type { Context, AssistantMessageEventStream } from '@mariozechner/pi-ai';
+import { getModel, streamSimple, createAssistantMessageEventStream } from '@mariozechner/pi-ai';
+import type { Context, AssistantMessageEventStream, AssistantMessageEvent } from '@mariozechner/pi-ai';
 import type { Storage } from '../storage/index.js';
 import { HEALTH_ADVISOR_PROMPT } from './system-prompt.js';
 import { createRecordTool, createQueryTool } from './tools/index.js';
@@ -16,18 +16,34 @@ export interface CreateAgentOptions {
 const createLoggingStreamFn = () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return (model: any, context: Context, options?: any): AssistantMessageEventStream => {
-    // 格式化打印请求报文
-    logger.info('[llm] ==================== 请求 ====================');
-    logger.info('[llm] model: %s', JSON.stringify(model, null, 2));
-    logger.info('[llm] systemPrompt:\n%s', context.systemPrompt);
-    logger.info('[llm] messages:\n%s', JSON.stringify(context.messages, null, 2));
-    if (context.tools?.length) {
-      logger.info('[llm] tools:\n%s', JSON.stringify(context.tools.map(t => ({ name: t.name, description: t.description })), null, 2));
-    }
-    logger.info('[llm] options:\n%s', JSON.stringify(options, null, 2));
+    // 输出原始请求报文
+    const payload = { model, context, options };
+    logger.info('[llm] >>> request: %j', payload);
 
     // 调用原始 streamSimple
-    return streamSimple(model, context, options);
+    const originalStream = streamSimple(model, context, options);
+
+    // 创建新的 stream 用于日志收集
+    const loggedStream = createAssistantMessageEventStream();
+    const responseEvents: AssistantMessageEvent[] = [];
+
+    // 异步处理原始 stream
+    (async () => {
+      try {
+        for await (const event of originalStream) {
+          responseEvents.push(event);
+          loggedStream.push(event);
+        }
+        loggedStream.end();
+        // 输出原始响应报文
+        logger.info('[llm] <<< response: %j', responseEvents);
+      } catch (err) {
+        loggedStream.end();
+        logger.error('[llm] error: %s', (err as Error).message);
+      }
+    })();
+
+    return loggedStream;
   };
 };
 
