@@ -45,16 +45,9 @@ const logAgentEvent = (event: AgentEvent) => {
     case 'message_start':
       logger.debug('[agent] message_start role=%s', event.message?.role);
       break;
-    case 'message_update': {
-      const assistantEvent = event.assistantMessageEvent;
-      let deltaText = '';
-      if (assistantEvent && 'delta' in assistantEvent) {
-        const delta = (assistantEvent as { delta?: { text?: string } }).delta;
-        deltaText = delta?.text?.slice(0, 50) || '';
-      }
-      logger.debug('[agent] message_update delta=%s...', deltaText);
+    case 'message_update':
+      // 流式输出太频繁，不记录
       break;
-    }
     case 'message_end': {
       const msg = event.message;
 
