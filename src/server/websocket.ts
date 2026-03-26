@@ -25,6 +25,80 @@ const sendMessage = (ws: WebSocket, msg: ServerMessage) => {
   }
 };
 
+// 记录 Agent 事件
+const logAgentEvent = (event: AgentEvent) => {
+  switch (event.type) {
+    case 'agent_start':
+      logger.debug('[agent] start');
+      break;
+    case 'agent_end':
+      logger.debug('[agent] end messages=%d', event.messages.length);
+      break;
+    case 'turn_start':
+      logger.debug('[agent] turn_start');
+      break;
+    case 'turn_end': {
+      const toolCount = event.toolResults?.length || 0;
+      logger.info('[agent] turn_end role=assistant tools=%d', toolCount);
+      break;
+    }
+    case 'message_start':
+      logger.debug('[agent] message_start role=%s', event.message?.role);
+      break;
+    case 'message_update': {
+      const assistantEvent = event.assistantMessageEvent;
+      let deltaText = '';
+      if (assistantEvent && 'delta' in assistantEvent) {
+        const delta = (assistantEvent as { delta?: { text?: string } }).delta;
+        deltaText = delta?.text?.slice(0, 50) || '';
+      }
+      logger.debug('[agent] message_update delta=%s...', deltaText);
+      break;
+    }
+    case 'message_end': {
+      const msg = event.message;
+
+      if (msg.role === 'user') {
+        logger.debug('[agent] message_end role=user');
+      } else if (msg.role === 'assistant') {
+        const content = msg.content;
+        let text = '';
+        if (Array.isArray(content)) {
+          const textBlock = content.find(c => c.type === 'text');
+          text = (textBlock as { text?: string })?.text || '';
+        }
+        const usage = msg.usage;
+        logger.info('[agent] message_end role=assistant text=%s... tokens=%d+%d',
+          text.slice(0, 100),
+          usage?.input || 0,
+          usage?.output || 0
+        );
+      }
+      break;
+    }
+    case 'tool_execution_start':
+      logger.info('[tool] execute name=%s args=%j', event.toolName, event.args);
+      break;
+    case 'tool_execution_update': {
+      const partial = JSON.stringify(event.partialResult).slice(0, 100);
+      logger.debug('[tool] update name=%s partial=%s...', event.toolName, partial);
+      break;
+    }
+    case 'tool_execution_end': {
+      if (event.isError) {
+        logger.error('[tool] error name=%s', event.toolName);
+      } else {
+        logger.info('[tool] end name=%s', event.toolName);
+      }
+      break;
+    }
+    default: {
+      const _event: never = event;
+      logger.debug('[agent] unhandled event type=%s', (_event as { type: string }).type);
+    }
+  }
+};
+
 // 处理客户端消息
 const handleMessage = async (
   ws: WebSocket,
@@ -41,9 +115,10 @@ const handleMessage = async (
         return;
       }
 
-      logger.info('ws', `Processing prompt for session ${sessionId}`);
+      logger.info('[ws] processing prompt sessionId=%s', sessionId);
 
       const unsubscribe = session.agent.subscribe((event) => {
+        logAgentEvent(event);
         sendMessage(ws, { type: 'event', event });
       });
 
@@ -51,7 +126,7 @@ const handleMessage = async (
         await session.agent.prompt(msg.content);
         sendMessage(ws, { type: 'done' });
       } catch (err) {
-        logger.error('ws', 'Prompt error', err as Error);
+        logger.error('[ws] prompt error message=%s', (err as Error).message);
         sendMessage(ws, { type: 'error', error: (err as Error).message });
       } finally {
         unsubscribe();
@@ -61,12 +136,13 @@ const handleMessage = async (
 
     case 'abort':
       session.agent.abort();
-      logger.info('ws', `Aborted session ${sessionId}`);
+      logger.info('[ws] aborted sessionId=%s', sessionId);
       break;
 
     case 'continue': {
-      logger.info('ws', `Continue session ${sessionId}`);
+      logger.info('[ws] continue sessionId=%s', sessionId);
       const unsubscribeContinue = session.agent.subscribe((event) => {
+        logAgentEvent(event);
         sendMessage(ws, { type: 'event', event });
       });
 
@@ -74,7 +150,7 @@ const handleMessage = async (
         await session.agent.continue();
         sendMessage(ws, { type: 'done' });
       } catch (err) {
-        logger.error('ws', 'Continue error', err as Error);
+        logger.error('[ws] continue error message=%s', (err as Error).message);
         sendMessage(ws, { type: 'error', error: (err as Error).message });
       } finally {
         unsubscribeContinue();
@@ -96,25 +172,25 @@ export const createWebSocketHandler = (
 
   wss.on('connection', (ws, req) => {
     const clientIp = req.socket.remoteAddress || 'unknown';
-    logger.info('ws', `Client connected from ${clientIp}`);
+    logger.info('[ws] client connected ip=%s', clientIp);
 
     ws.on('message', async (data) => {
       try {
         const msg: ClientMessage = JSON.parse(data.toString());
-        logger.debug('ws', 'Received message', msg);
+        logger.debug('[ws] received message type=%s sessionId=%s', msg.type, msg.sessionId || 'default');
         await handleMessage(ws, msg, sessionManager);
       } catch (err) {
-        logger.error('ws', 'Failed to handle message', err as Error);
+        logger.error('[ws] failed to handle message error=%s', (err as Error).message);
         sendMessage(ws, { type: 'error', error: (err as Error).message });
       }
     });
 
     ws.on('close', () => {
-      logger.info('ws', 'Client disconnected');
+      logger.info('[ws] client disconnected');
     });
 
     ws.on('error', (err) => {
-      logger.error('ws', 'WebSocket error', err);
+      logger.error('[ws] error message=%s', err.message);
     });
   });
 

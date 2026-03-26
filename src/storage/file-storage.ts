@@ -1,6 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import type { Storage, HealthRecord, QueryOptions } from './index.js';
+import { logger } from '../logger/index.js';
 
 // 生成唯一 ID
 const generateId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -19,6 +20,7 @@ const filterByType = (records: HealthRecord[], type: string) => {
 // 创建文件存储
 export const createFileStorage = (dataPath: string): Storage => {
   const filePath = path.join(dataPath, 'records.json');
+  logger.debug('[storage] initialized path=%s', filePath);
 
   // 读取所有记录
   const readAll = async (): Promise<HealthRecord[]> => {
@@ -46,6 +48,7 @@ export const createFileStorage = (dataPath: string): Storage => {
     };
     records.push(newRecord);
     await writeAll(records);
+    logger.info('[storage] record type=%s id=%s total=%d', data.type, newRecord.id, records.length);
     return newRecord;
   };
 
@@ -67,6 +70,13 @@ export const createFileStorage = (dataPath: string): Storage => {
     if (options.limit && options.limit > 0) {
       records = records.slice(0, options.limit);
     }
+
+    logger.debug('[storage] query type=%s days=%d limit=%d results=%d',
+      options.type || 'all',
+      options.days || 0,
+      options.limit || 0,
+      records.length
+    );
 
     return records;
   };

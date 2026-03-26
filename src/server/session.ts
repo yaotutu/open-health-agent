@@ -1,4 +1,5 @@
 import type { Agent } from '@mariozechner/pi-agent-core';
+import { logger } from '../logger/index.js';
 
 export interface Session {
   id: string;
@@ -23,6 +24,9 @@ export const createSessionManager = (createAgent: () => Agent) => {
         lastActiveAt: new Date(),
       };
       sessions.set(sessionId, session);
+      logger.info('[session] created id=%s total=%d', sessionId, sessions.size);
+    } else {
+      logger.debug('[session] accessed id=%s', sessionId);
     }
 
     session.lastActiveAt = new Date();
@@ -36,7 +40,11 @@ export const createSessionManager = (createAgent: () => Agent) => {
 
   // 删除会话
   const remove = (sessionId: string): boolean => {
-    return sessions.delete(sessionId);
+    const result = sessions.delete(sessionId);
+    if (result) {
+      logger.info('[session] removed id=%s total=%d', sessionId, sessions.size);
+    }
+    return result;
   };
 
   // 获取所有会话 ID

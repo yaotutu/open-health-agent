@@ -41,8 +41,8 @@ createWebSocketHandler(server, sessionManager);
 
 // 启动服务器
 server.listen(PORT, () => {
-  logger.info('server', `HealthClaw server started on port ${PORT}`);
-  logger.info('server', `WebSocket: ws://localhost:${PORT}/ws`);
-  logger.info('server', `Health check: http://localhost:${PORT}/health`);
-  logger.info('server', `Workspace: ${WORKSPACE_PATH}`);
+  logger.info('[server] started port=%d', PORT);
+  logger.info('[server] websocket ws://localhost:%d/ws', PORT);
+  logger.info('[server] health check http://localhost:%d/health', PORT);
+  logger.info('[server] workspace path=%s', WORKSPACE_PATH);
 });

@@ -3,6 +3,7 @@ import { getModel } from '@mariozechner/pi-ai';
 import type { Storage } from '../storage/index.js';
 import { HEALTH_ADVISOR_PROMPT } from './system-prompt.js';
 import { createRecordTool, createQueryTool } from './tools/index.js';
+import { logger } from '../logger/index.js';
 
 export interface CreateAgentOptions {
   storage: Storage;
@@ -20,6 +21,8 @@ export const createHealthAgent = (options: CreateAgentOptions) => {
     createRecordTool(storage),
     createQueryTool(storage),
   ];
+
+  logger.info('[agent] created provider=%s model=%s tools=%d', provider, model || 'default', tools.length);
 
   const agent = new Agent({
     initialState: {

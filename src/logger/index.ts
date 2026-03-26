@@ -1,40 +1,11 @@
-import chalk from 'chalk';
+import pino from 'pino';
 
-const formatTime = () => new Date().toISOString().slice(11, 23);
-
-export const logger = {
-  info: (module: string, msg: string, data?: unknown) => {
-    console.log(
-      chalk.gray(`[${formatTime()}]`) +
-      chalk.cyan(`[${module}]`) +
-      ` ${msg}`
-    );
-    if (data !== undefined) {
-      console.log(chalk.gray(JSON.stringify(data, null, 2)));
+export const logger = pino({
+  level: process.env.LOG_LEVEL || 'debug',
+  transport: process.env.NODE_ENV !== 'production' ? {
+    target: 'pino-pretty',
+    options: {
+      colorize: true
     }
-  },
-
-  error: (module: string, msg: string, err?: Error) => {
-    console.error(
-      chalk.gray(`[${formatTime()}]`) +
-      chalk.red(`[${module}]`) +
-      ` ${msg}`
-    );
-    if (err) {
-      console.error(chalk.red(err.stack || err.message));
-    }
-  },
-
-  debug: (module: string, msg: string, data?: unknown) => {
-    if (process.env.DEBUG) {
-      console.log(
-        chalk.gray(`[${formatTime()}]`) +
-        chalk.magenta(`[${module}]`) +
-        ` ${msg}`
-      );
-      if (data !== undefined) {
-        console.log(chalk.gray(JSON.stringify(data, null, 2)));
-      }
-    }
-  }
-};
+  } : undefined
+});
