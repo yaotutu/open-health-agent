@@ -1,9 +1,11 @@
 import pino from 'pino';
-import { LOG_CONFIG } from '../config/index.js';
+
+const logLevel = process.env.LOG_LEVEL || 'info';
+const nodeEnv = process.env.NODE_ENV || 'development';
 
 export const logger = pino({
-  level: LOG_CONFIG.LEVEL,
-  transport: LOG_CONFIG.ENV !== 'production' ? {
+  level: logLevel,
+  transport: nodeEnv !== 'production' ? {
     target: 'pino-pretty',
     options: {
       colorize: true

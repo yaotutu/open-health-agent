@@ -78,8 +78,10 @@ export class WebSocketChannel implements ChannelAdapter {
     this.connections.set(connectionId, { ws, userId });
 
     const channelMsg: ChannelMessage = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
       userId,
       content: clientMsg.content || '',
+      timestamp: new Date(),
       channel: 'websocket',
       metadata: { connectionId, messageType: clientMsg.type },
     };
