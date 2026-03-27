@@ -14,25 +14,36 @@ export const createSessionManager = (options: CreateSessionManagerOptions): Sess
   const { createAgent, sessionStore } = options;
   const sessions = new Map<string, Session>();
 
-  const getOrCreate = (userId: string): Session => {
+  const getOrCreate = async (userId: string): Promise<Session> => {
+    // Check cache first
     let session = sessions.get(userId);
-
-    if (!session) {
-      session = {
-        userId,
-        agent: createAgent([]), // 初始为空，后续异步加载
-        createdAt: new Date(),
-        lastActiveAt: new Date(),
-        messageHistory: [],
-        loaded: false,
-      };
-      sessions.set(userId, session);
-      logger.info('[session] created userId=%s total=%d', userId, sessions.size);
-    } else {
+    if (session) {
+      session.lastActiveAt = new Date();
       logger.debug('[session] accessed userId=%s', userId);
+      return session;
     }
 
-    session.lastActiveAt = new Date();
+    // Load messages synchronously before creating session
+    let messages: Message[] = [];
+    try {
+      messages = await sessionStore.getMessages(userId);
+      logger.info('[session] loaded %d messages userId=%s', messages.length, userId);
+    } catch (err) {
+      logger.error('[session] failed to load messages userId=%s error=%s', userId, (err as Error).message);
+    }
+
+    // Create session with loaded messages
+    session = {
+      userId,
+      agent: createAgent(messages),
+      createdAt: new Date(),
+      lastActiveAt: new Date(),
+      messageHistory: messages,
+      loaded: true,
+    };
+    sessions.set(userId, session);
+    logger.info('[session] created userId=%s total=%d', userId, sessions.size);
+
     return session;
   };
 

@@ -82,7 +82,7 @@ export const createMessageHandler = (options: MessageHandlerOptions): MessageHan
 
     logger.info('[handler] processing message userId=%s channel=%s', userId, message.channel);
 
-    const session = sessionManager.getOrCreate(userId);
+    const session = await sessionManager.getOrCreate(userId);
     const events: AgentEvent[] = [];
 
     const unsubscribe = session.agent.subscribe((event) => {
@@ -139,7 +139,7 @@ export const createMessageHandler = (options: MessageHandlerOptions): MessageHan
 
     logger.info('[handler] processing stream userId=%s channel=%s', userId, message.channel);
 
-    const session = sessionManager.getOrCreate(userId);
+    const session = await sessionManager.getOrCreate(userId);
     const events: AgentEvent[] = [];
     let buffer = '';
 

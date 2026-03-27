@@ -10,7 +10,7 @@ export interface Session {
 }
 
 export interface SessionManager {
-  getOrCreate(userId: string): Session;
+  getOrCreate(userId: string): Promise<Session>;
   get(userId: string): Session | undefined;
   remove(userId: string): boolean;
   list(): string[];
@@ -25,29 +25,34 @@ export const createSessionManager = (options: CreateSessionManagerOptions): Sess
   const { createAgent, store } = options;
   const sessions = new Map<string, Session>();
 
-  const getOrCreate = (userId: string): Session => {
+  const getOrCreate = async (userId: string): Promise<Session> => {
+    // Check cache first
     let session = sessions.get(userId);
-
-    if (!session) {
-      session = {
-        userId,
-        agent: createAgent([]),
-        createdAt: new Date(),
-        lastActiveAt: new Date(),
-      };
-      sessions.set(userId, session);
-      logger.info('[session] created userId=%s total=%d', userId, sessions.size);
-
-      // 异步加载历史消息
-      store.messages.getMessages(userId).then(messages => {
-        if (messages.length > 0) {
-          session!.agent = createAgent(messages);
-          logger.info('[session] loaded %d messages userId=%s', messages.length, userId);
-        }
-      });
+    if (session) {
+      session.lastActiveAt = new Date();
+      logger.debug('[session] accessed userId=%s', userId);
+      return session;
     }
 
-    session.lastActiveAt = new Date();
+    // Load messages synchronously before creating session
+    let messages: Message[] = [];
+    try {
+      messages = await store.messages.getMessages(userId);
+      logger.info('[session] loaded %d messages userId=%s', messages.length, userId);
+    } catch (err) {
+      logger.error('[session] failed to load messages userId=%s error=%s', userId, (err as Error).message);
+    }
+
+    // Create session with loaded messages
+    session = {
+      userId,
+      agent: createAgent(messages),
+      createdAt: new Date(),
+      lastActiveAt: new Date(),
+    };
+    sessions.set(userId, session);
+    logger.info('[session] created userId=%s total=%d', userId, sessions.size);
+
     return session;
   };
 

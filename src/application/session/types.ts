@@ -26,7 +26,7 @@ export interface Session {
  */
 export interface SessionManager {
   /** 获取或创建会话 */
-  getOrCreate(userId: string): Session;
+  getOrCreate(userId: string): Promise<Session>;
   /** 获取会话 */
   get(userId: string): Session | undefined;
   /** 删除会话 */
