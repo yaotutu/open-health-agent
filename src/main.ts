@@ -19,8 +19,8 @@ async function main() {
   logger.info('[app] database initialized path=%s', DB_PATH);
 
   // 2. 创建 Agent 工厂
-  const createAgent = (messages: Parameters<typeof createHealthAgent>[0]['messages']) =>
-    createHealthAgent({ store, messages });
+  const createAgent = (userId: string, messages: Parameters<typeof createHealthAgent>[0]['messages']) =>
+    createHealthAgent({ store, userId, messages });
 
   // 3. 会话管理
   const sessions = createSessionManager({ createAgent, store });
@@ -37,6 +37,7 @@ async function main() {
   // 7. 启动 WebSocket 通道
   const wsChannel = createWebSocketChannel({ server, path: '/ws' });
   wsChannel.onMessage(handleMessage);
+  wsChannel.onAbort((userId) => sessions.abort(userId));
   await wsChannel.start();
   channels.push(wsChannel);
 

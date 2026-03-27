@@ -66,14 +66,15 @@ const createLoggingStreamFn = () => {
 
 export interface CreateAgentOptions {
   store: Store;
+  userId: string;
   messages?: Message[];
 }
 
 export const createHealthAgent = (options: CreateAgentOptions) => {
-  const { store, messages = [] } = options;
+  const { store, userId, messages = [] } = options;
 
   const agentModel = getModel(LLM_PROVIDER as any, LLM_MODEL);
-  const tools = createTools(store);
+  const tools = createTools(store, userId);
   const toolList = [tools.record, tools.query];
 
   logger.info('[agent] created provider=%s model=%s tools=%d', LLM_PROVIDER, LLM_MODEL, toolList.length);

@@ -12,22 +12,39 @@ export interface Session {
 export interface SessionManager {
   getOrCreate(userId: string): Promise<Session>;
   get(userId: string): Session | undefined;
+  abort(userId: string): boolean;
   remove(userId: string): boolean;
   list(): string[];
   close(): void;
 }
 
+const DEFAULT_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+const DEFAULT_CLEANUP_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
+
 export interface CreateSessionManagerOptions {
-  createAgent: (messages: Message[]) => Agent;
+  createAgent: (userId: string, messages: Message[]) => Agent;
   store: Store;
+  ttlMs?: number;
+  cleanupIntervalMs?: number;
 }
 
 export const createSessionManager = (options: CreateSessionManagerOptions): SessionManager => {
-  const { createAgent, store } = options;
+  const { createAgent, store, ttlMs = DEFAULT_TTL_MS, cleanupIntervalMs = DEFAULT_CLEANUP_INTERVAL_MS } = options;
   const sessions = new Map<string, Session>();
 
+  const cleanup = () => {
+    const now = Date.now();
+    for (const [userId, session] of sessions) {
+      if (now - session.lastActiveAt.getTime() > ttlMs) {
+        sessions.delete(userId);
+        logger.info('[session] expired userId=%s', userId);
+      }
+    }
+  };
+
+  const cleanupTimer = setInterval(cleanup, cleanupIntervalMs);
+
   const getOrCreate = async (userId: string): Promise<Session> => {
-    // Check cache first
     let session = sessions.get(userId);
     if (session) {
       session.lastActiveAt = new Date();
@@ -35,7 +52,6 @@ export const createSessionManager = (options: CreateSessionManagerOptions): Sess
       return session;
     }
 
-    // Load messages synchronously before creating session
     let messages: Message[] = [];
     try {
       messages = await store.messages.getMessages(userId);
@@ -44,10 +60,9 @@ export const createSessionManager = (options: CreateSessionManagerOptions): Sess
       logger.error('[session] failed to load messages userId=%s error=%s', userId, (err as Error).message);
     }
 
-    // Create session with loaded messages
     session = {
       userId,
-      agent: createAgent(messages),
+      agent: createAgent(userId, messages),
       createdAt: new Date(),
       lastActiveAt: new Date(),
     };
@@ -59,6 +74,14 @@ export const createSessionManager = (options: CreateSessionManagerOptions): Sess
 
   const get = (userId: string): Session | undefined => {
     return sessions.get(userId);
+  };
+
+  const abort = (userId: string): boolean => {
+    const session = sessions.get(userId);
+    if (!session) return false;
+    session.agent.abort();
+    logger.info('[session] aborted userId=%s', userId);
+    return true;
   };
 
   const remove = (userId: string): boolean => {
@@ -74,6 +97,7 @@ export const createSessionManager = (options: CreateSessionManagerOptions): Sess
   };
 
   const close = (): void => {
+    clearInterval(cleanupTimer);
     const count = sessions.size;
     sessions.clear();
     if (count > 0) {
@@ -81,5 +105,5 @@ export const createSessionManager = (options: CreateSessionManagerOptions): Sess
     }
   };
 
-  return { getOrCreate, get, remove, list, close };
+  return { getOrCreate, get, abort, remove, list, close };
 };

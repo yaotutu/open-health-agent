@@ -30,7 +30,7 @@ const QueryParamsSchema = Type.Object({
 type RecordParams = typeof RecordParamsSchema;
 type QueryParams = typeof QueryParamsSchema;
 
-export const createTools = (store: Store) => {
+export const createTools = (store: Store, userId: string) => {
   const record: AgentTool<RecordParams> = {
     name: 'record_health_data',
     label: '记录健康数据',
@@ -38,6 +38,7 @@ export const createTools = (store: Store) => {
     parameters: RecordParamsSchema,
     execute: async (_toolCallId, params, _signal) => {
       const record = await store.health.record({
+        userId,
         type: params.type as HealthRecord['type'],
         value: params.value,
         unit: params.unit,
@@ -58,6 +59,7 @@ export const createTools = (store: Store) => {
     parameters: QueryParamsSchema,
     execute: async (_toolCallId, params, _signal) => {
       const records = await store.health.query({
+        userId,
         type: params.type as HealthRecord['type'] | undefined,
         days: params.days ?? 7,
         limit: params.limit ?? 10,
