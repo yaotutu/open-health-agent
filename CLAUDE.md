@@ -1,66 +1,65 @@
 # Healthclaw
 
-个人健康顾问 Agent，通过 WebSocket 提供健康数据记录和查询服务。
+个人健康顾问 Agent，支持 WebSocket 和 QQ Bot 通道提供健康数据记录和查询服务。
 
 ## 架构
 
-采用 **Clean Architecture** 模式，分层清晰、依赖倒置。
+采用简化分层架构，通道无关设计。
 
 ```
 src/
-├── domain/           # 领域层（零依赖）
-│   ├── types.ts           # HealthDataType, HealthRecord, QueryOptions
-│   └── events.ts          # 领域事件定义
-├── infrastructure/   # 基础设施层
-│   ├── storage/           # 存储抽象与实现
-│   │   ├── interface.ts   # IStorage 接口
-│   │   └── file-storage.ts # JSON 文件存储
-│   ├── message-bus/       # 消息总线类型
+├── agent/            # Agent 核心
+│   ├── factory.ts         # 创建 Agent 实例
+│   ├── prompt.ts          # 系统提示词
+│   ├── tools.ts           # record, query 工具
+│   └── index.ts           # 导出
+├── session/          # 会话管理
+│   ├── manager.ts         # 会话生命周期管理
+│   └── index.ts           # 导出
+├── store/            # 存储层 (SQLite + Drizzle ORM)
+│   ├── db.ts              # 数据库连接
+│   ├── schema.ts          # 表结构定义
+│   ├── health.ts          # 健康记录存储
+│   ├── messages.ts        # 消息历史存储
+│   └── index.ts           # Store 统一入口
+├── channels/         # 通道适配器
+│   ├── types.ts           # ChannelAdapter, ChannelMessage 等类型
+│   ├── handler.ts         # 消息处理器（通道无关）
+│   ├── websocket.ts       # WebSocket 通道实现
+│   ├── qq.ts              # QQ Bot 通道实现
+│   └── index.ts           # 导出
+├── infrastructure/   # 基础设施
 │   └── logger.ts          # Pino 日志
-├── application/      # 应用层
-│   ├── agent/             # Agent 工厂与配置
-│   │   ├── factory.ts     # 创建 Agent 实例
-│   │   ├── prompt.ts      # 系统提示词
-│   │   └── tools/         # record, query 工具
-│   ├── session/           # 会话管理
-│   │   ├── types.ts       # Session, SessionManager 接口
-│   │   └── manager.ts     # 会话生命周期管理
-│   └── message-handler.ts # 消息处理（通道无关）
-├── channels/         # 通道适配器层
-│   ├── interface.ts       # ChannelAdapter 接口
-│   └── websocket/         # WebSocket 通道
-│       ├── server.ts      # WebSocket 服务器
-│       ├── adapter.ts     # 适配器实现
-│       └── types.ts       # 协议类型
-├── config/           # 配置层
-│   └── index.ts           # 环境配置集中管理
-├── interface/        # 接口层
-│   └── websocket/types.ts # WebSocket 类型定义
-├── main.ts           # 入口文件
-└── index.ts          # 公开 API 导出
+└── main.ts           # 入口文件
 ```
 
 ### 架构特点
 
-- **依赖倒置**: 高层模块不依赖低层模块，都依赖抽象接口
-- **通道无关**: 消息处理与通信通道解耦，易于扩展新通道
-- **可测试性**: 工厂模式 + 接口抽象便于依赖注入和 Mock
+- **通道无关**: 消息处理与通信通道解耦，支持 WebSocket 和 QQ Bot
+- **统一存储**: SQLite + Drizzle ORM，类型安全的数据库操作
+- **流式响应**: 支持打字机效果的流式输出
 
-## 协议
+## 通道
 
-**WebSocket 端点:** `/ws`
+### WebSocket
+
+**端点:** `/ws`
 
 ```typescript
 // 客户端 -> 服务器
-{ type: 'prompt', content: '...', sessionId?: string, userId?: string }
-{ type: 'continue', sessionId?: string, userId?: string }
-{ type: 'abort', sessionId?: string, userId?: string }
+{ type: 'prompt', content: '...', sessionId?: string }
+{ type: 'continue', sessionId?: string }
+{ type: 'abort', sessionId?: string }
 
 // 服务器 -> 客户端
 { type: 'event', event: AgentEvent }
 { type: 'done' }
 { type: 'error', error: string }
 ```
+
+### QQ Bot
+
+通过 `pure-qqbot` 库实现，自动回复用户消息（不支持流式，累积后发送）。
 
 ## 数据类型
 
@@ -87,8 +86,12 @@ bun run typecheck  # 类型检查
 ```bash
 # 服务器
 PORT=3001
-WORKSPACE_PATH=./workspace
-PUBLIC_PATH=./public
+DB_PATH=./workspace/healthclaw.db
+
+# QQ Bot (可选)
+QQBOT_APP_ID=your_app_id
+QQBOT_APP_SECRET=your_app_secret
+QQBOT_CLIENT_SECRET=your_client_secret  # 可选，默认使用 APP_SECRET
 
 # LLM
 LLM_PROVIDER=anthropic
@@ -104,15 +107,17 @@ NODE_ENV=development
 使用 pino 结构化日志，格式：`[模块名] 操作 key=value`
 
 ```typescript
-logger.info('[server] started port=%d', 3001);
-logger.debug('[ws] received type=%s', msg.type);
-logger.error('[storage] error=%s', err.message);
+logger.info('[app] server started port=%d', 3001);
+logger.info('[qq] channel started');
+logger.error('[app] fatal error=%s', err.message);
 ```
 
 **禁止使用** `console.log`
 
 ## 存储
 
-当前使用 JSON 文件存储：`workspace/records.json`
+使用 SQLite 数据库存储健康记录和消息历史：
+- `health_records` 表：健康数据记录
+- `messages` 表：会话消息历史
 
-可通过实现 `IStorage` 接口切换到其他存储后端（数据库、云存储等）。
+通过 Drizzle ORM 提供类型安全的数据库操作。
