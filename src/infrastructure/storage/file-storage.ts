@@ -1,7 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
-import type { Storage, HealthRecord, QueryOptions } from './index.js';
-import { logger } from '../logger/index.js';
+import type { Storage, HealthRecord, QueryOptions } from './interface.js';
+import { logger } from '../logger.js';
 
 // 生成唯一 ID
 const generateId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;

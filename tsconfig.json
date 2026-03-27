@@ -10,7 +10,14 @@
     "rootDir": "./src",
     "resolveJsonModule": true,
     "declaration": true,
-    "types": ["node"]
+    "types": ["node"],
+    "paths": {
+      "@domain/*": ["./src/domain/*"],
+      "@infrastructure/*": ["./src/infrastructure/*"],
+      "@application/*": ["./src/application/*"],
+      "@channels/*": ["./src/channels/*"],
+      "@config": ["./src/config/index.ts"]
+    }
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]

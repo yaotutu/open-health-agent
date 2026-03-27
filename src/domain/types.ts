@@ -1,7 +1,6 @@
-// 健康数据类型
+// 纯领域模型，无任何依赖
 export type HealthDataType = 'weight' | 'sleep' | 'diet' | 'exercise' | 'water';
 
-// 健康记录
 export interface HealthRecord {
   id: string;
   type: HealthDataType;
@@ -11,15 +10,8 @@ export interface HealthRecord {
   note?: string;
 }
 
-// 查询选项
 export interface QueryOptions {
   type?: HealthDataType;
   days?: number;
   limit?: number;
-}
-
-// 存储接口
-export interface Storage {
-  record(data: Omit<HealthRecord, 'id' | 'timestamp'>): Promise<HealthRecord>;
-  query(options: QueryOptions): Promise<HealthRecord[]>;
 }

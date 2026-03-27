@@ -1,6 +1,7 @@
 import { Type } from '@sinclair/typebox';
 import type { AgentTool } from '@mariozechner/pi-agent-core';
-import type { Storage, HealthDataType } from '../../storage/index.js';
+import type { Storage } from '../../../infrastructure/storage/interface.js';
+import type { HealthDataType } from '../../../domain/types.js';
 
 const QueryParamsSchema = Type.Object({
   type: Type.Optional(Type.Union([
