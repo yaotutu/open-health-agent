@@ -31,6 +31,7 @@ export class Store {
     this.sqlite.run(`
       CREATE TABLE IF NOT EXISTS health_records (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id TEXT NOT NULL,
         type TEXT NOT NULL CHECK(type IN ('weight', 'sleep', 'diet', 'exercise', 'water')),
         value REAL NOT NULL,
         unit TEXT,
@@ -41,13 +42,14 @@ export class Store {
     this.sqlite.run(`
       CREATE TABLE IF NOT EXISTS messages (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        session_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
         role TEXT NOT NULL CHECK(role IN ('user', 'assistant')),
         content TEXT NOT NULL,
         timestamp INTEGER NOT NULL
       )
     `);
-    this.sqlite.run(`CREATE INDEX IF NOT EXISTS idx_messages_session_id ON messages(session_id)`);
+    this.sqlite.run(`CREATE INDEX IF NOT EXISTS idx_messages_user_id ON messages(user_id)`);
+    this.sqlite.run(`CREATE INDEX IF NOT EXISTS idx_health_user_id ON health_records(user_id)`);
     this.sqlite.run(`CREATE INDEX IF NOT EXISTS idx_health_timestamp ON health_records(timestamp)`);
   }
 

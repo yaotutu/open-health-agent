@@ -2,6 +2,7 @@ import { sqliteTable, text, real, integer } from 'drizzle-orm/sqlite-core';
 
 export const healthRecords = sqliteTable('health_records', {
   id: integer('id').primaryKey({ autoIncrement: true }),
+  userId: text('user_id').notNull(),
   type: text('type', { enum: ['weight', 'sleep', 'diet', 'exercise', 'water'] }).notNull(),
   value: real('value').notNull(),
   unit: text('unit'),
@@ -11,7 +12,7 @@ export const healthRecords = sqliteTable('health_records', {
 
 export const messages = sqliteTable('messages', {
   id: integer('id').primaryKey({ autoIncrement: true }),
-  sessionId: text('session_id').notNull(),
+  userId: text('user_id').notNull(),
   role: text('role', { enum: ['user', 'assistant'] }).notNull(),
   content: text('content').notNull(),
   timestamp: integer('timestamp').notNull(),
