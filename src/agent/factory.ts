@@ -2,6 +2,7 @@ import { Agent } from '@mariozechner/pi-agent-core';
 import { getModel, streamSimple, createAssistantMessageEventStream } from '@mariozechner/pi-ai';
 import type { Context, AssistantMessageEventStream, UserMessage, AssistantMessage } from '@mariozechner/pi-ai';
 import type { Store, Message } from '../store';
+import { logger } from '../infrastructure/logger';
 import { HEALTH_ADVISOR_PROMPT } from './prompt';
 import { createTools } from './tools';
 
@@ -35,7 +36,7 @@ const convertMessages = (messages: Message[]): Array<UserMessage | AssistantMess
 
 const createLoggingStreamFn = () => {
   return (model: unknown, context: Context, options?: unknown): AssistantMessageEventStream => {
-    console.log('[llm] >>> request', { model });
+    logger.info('[llm] request');
 
     const originalStream = streamSimple(model as any, context, options as any);
     const loggedStream = createAssistantMessageEventStream();
@@ -51,11 +52,11 @@ const createLoggingStreamFn = () => {
         }
         loggedStream.end();
         if (finalMessage) {
-          console.log('[llm] <<< response');
+          logger.info('[llm] response');
         }
       } catch (err) {
         loggedStream.end();
-        console.error('[llm] error:', (err as Error).message);
+        logger.error('[llm] error=%s', (err as Error).message);
       }
     })();
 
@@ -75,7 +76,7 @@ export const createHealthAgent = (options: CreateAgentOptions) => {
   const tools = createTools(store);
   const toolList = [tools.record, tools.query];
 
-  console.log(`[agent] created provider=${LLM_PROVIDER} model=${LLM_MODEL} tools=${toolList.length}`);
+  logger.info('[agent] created provider=%s model=%s tools=%d', LLM_PROVIDER, LLM_MODEL, toolList.length);
 
   const agent = new Agent({
     initialState: {
