@@ -3,29 +3,34 @@
  * 支持多通道（WebSocket、Telegram等）
  */
 import http from 'http';
-import { config } from 'dotenv';
-import { SERVER_CONFIG } from './config/index.js';
+import { config } from './config/index.js';
 import { createFileStorage } from './infrastructure/storage/file-storage.js';
-import { createSimpleSessionManager } from './application/session/manager.js';
+import { createSessionStore } from './infrastructure/storage/session-store.js';
+import { createSessionManager } from './application/session/manager.js';
 import { createMessageHandler } from './application/message-handler.js';
 import { createHealthAgent } from './application/agent/factory.js';
 import { createWebSocketChannel } from './channels/websocket/server.js';
 import { logger } from './infrastructure/logger.js';
 
-// 加载环境变量
-config();
+// 关闭超时时间
+const SHUTDOWN_TIMEOUT = 10000; // 10秒
 
 async function main() {
   logger.info('[app] starting health advisor agent...');
 
-  // 1. 基础设施层
-  const storage = createFileStorage(SERVER_CONFIG.WORKSPACE_PATH);
-  
-  // 2. 应用层 - Agent工厂
-  const createAgent = () => createHealthAgent({ storage });
-  
-  // 3. 会话管理器（按userId）
-  const sessionManager = createSimpleSessionManager(createAgent);
+  // 1. 基础设施层 - 存储初始化
+  const storage = createFileStorage(config.server.workspacePath);
+  const sessionStore = createSessionStore(config.server.workspacePath);
+
+  // 2. 应用层 - Agent工厂（支持历史消息）
+  const createAgent = (messages: Parameters<typeof createHealthAgent>[0]['messages']) =>
+    createHealthAgent({ storage, messages });
+
+  // 3. 会话管理器（集成存储）
+  const sessionManager = createSessionManager({
+    createAgent,
+    sessionStore,
+  });
   
   // 4. 消息处理器（通道无关）
   const messageHandler = createMessageHandler({ sessionManager });
@@ -89,23 +94,40 @@ async function main() {
   await wsChannel.start();
 
   // 7. 启动服务器
-  server.listen(SERVER_CONFIG.PORT, () => {
-    logger.info('[app] server started port=%d', SERVER_CONFIG.PORT);
-    logger.info('[app] websocket ws://localhost:%d/ws', SERVER_CONFIG.PORT);
-    logger.info('[app] health check http://localhost:%d/health', SERVER_CONFIG.PORT);
-    logger.info('[app] workspace path=%s', SERVER_CONFIG.WORKSPACE_PATH);
+  server.listen(config.server.port, () => {
+    logger.info('[app] server started port=%d', config.server.port);
+    logger.info('[app] websocket ws://localhost:%d/ws', config.server.port);
+    logger.info('[app] health check http://localhost:%d/health', config.server.port);
+    logger.info('[app] workspace path=%s', config.server.workspacePath);
   });
 
   // 8. 优雅关闭
   const shutdown = async (signal: string) => {
     logger.info('[app] received %s, shutting down...', signal);
-    
-    await wsChannel.stop();
-    server.close();
-    await storage.close?.();
-    
-    logger.info('[app] shutdown complete');
-    process.exit(0);
+
+    const timeout = setTimeout(() => {
+      logger.warn('[app] shutdown timeout (%dms), forcing exit', SHUTDOWN_TIMEOUT);
+      process.exit(1);
+    }, SHUTDOWN_TIMEOUT);
+
+    try {
+      // 1. 停止接收新连接
+      await wsChannel.stop();
+
+      // 2. 关闭 HTTP 服务器
+      server.close();
+
+      // 3. 关闭存储
+      await storage.close?.();
+      await sessionStore.close();
+
+      clearTimeout(timeout);
+      logger.info('[app] shutdown complete');
+      process.exit(0);
+    } catch (err) {
+      logger.error('[app] shutdown error: %s', (err as Error).message);
+      process.exit(1);
+    }
   };
 
   process.on('SIGINT', () => shutdown('SIGINT'));
