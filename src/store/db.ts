@@ -2,9 +2,15 @@ import { drizzle } from 'drizzle-orm/bun-sqlite';
 import { Database } from 'bun:sqlite';
 import { healthRecords, messages } from './schema';
 
-export const createDb = (dbPath: string) => {
+export interface CreateDbResult {
+  db: ReturnType<typeof drizzle<{ healthRecords: typeof healthRecords; messages: typeof messages }>>;
+  sqlite: Database;
+}
+
+export const createDb = (dbPath: string): CreateDbResult => {
   const sqlite = new Database(dbPath);
-  return drizzle(sqlite, { schema: { healthRecords, messages } });
+  const db = drizzle(sqlite, { schema: { healthRecords, messages } });
+  return { db, sqlite };
 };
 
-export type Db = ReturnType<typeof createDb>;
+export type Db = CreateDbResult['db'];
