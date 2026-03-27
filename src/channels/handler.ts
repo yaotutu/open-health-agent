@@ -40,7 +40,6 @@ export const createMessageHandler = (options: CreateMessageHandlerOptions) => {
       events.push(event);
       if (event.type === 'message_update') {
         const msg = event.message;
-        // Type guard: check if message has string content
         if (msg?.role === 'assistant' && typeof msg.content === 'string') {
           context.sendStream?.(msg.content, false);
         }
@@ -68,11 +67,21 @@ export const createMessageHandler = (options: CreateMessageHandlerOptions) => {
           content: assistantText,
           timestamp: Date.now(),
         });
-        await context.send(assistantText);
+        // Streaming channels already delivered content via events
+        // Only call send() for non-streaming channels (like QQ)
+        if (!context.sendStream) {
+          await context.send(assistantText);
+        }
       }
     } catch (err) {
-      logger.error('[handler] error=%s', (err as Error).message);
-      await context.send(`处理出错: ${(err as Error).message}`);
+      const errMsg = (err as Error).message;
+      // Agent.abort() causes prompt() to reject — treat as intentional
+      if (errMsg?.includes('aborted')) {
+        logger.info('[handler] request aborted userId=%s', userId);
+        return;
+      }
+      logger.error('[handler] error=%s', errMsg);
+      await context.send(`处理出错: ${errMsg}`);
     } finally {
       unsubscribe();
     }

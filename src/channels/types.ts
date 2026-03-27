@@ -65,7 +65,7 @@ export interface ClientMessage {
 }
 
 export interface ServerMessage {
-  type: 'event' | 'error' | 'done';
+  type: 'event' | 'error' | 'done' | 'aborted';
   event?: AgentEvent;
   error?: string;
 }

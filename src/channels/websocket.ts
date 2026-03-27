@@ -13,11 +13,50 @@ export interface WebSocketChannelOptions {
   path?: string;
 }
 
+export type AbortHandler = (userId: string) => void;
+
+const createEmptyUsage = () => ({
+  input: 0,
+  output: 0,
+  cacheRead: 0,
+  cacheWrite: 0,
+  totalTokens: 0,
+  cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+});
+
+const createBaseMessage = (text: string) => ({
+  role: 'assistant' as const,
+  content: [{ type: 'text' as const, text }],
+  model: '',
+  provider: '',
+  api: '',
+  usage: createEmptyUsage(),
+  stopReason: 'stop' as const,
+  timestamp: Date.now(),
+});
+
+const createMessageUpdateEvent = (text: string): ServerMessage['event'] => ({
+  type: 'message_update',
+  message: createBaseMessage(text),
+  assistantMessageEvent: {
+    type: 'text_delta',
+    contentIndex: 0,
+    delta: text,
+    partial: createBaseMessage(text),
+  },
+});
+
+const createMessageEndEvent = (text: string): ServerMessage['event'] => ({
+  type: 'message_end',
+  message: createBaseMessage(text),
+});
+
 export class WebSocketChannel implements ChannelAdapter {
   readonly name = 'websocket';
   private wss: WebSocketServer;
   private connections = new Map<string, Connection>();
   private messageHandler?: MessageHandler;
+  private abortHandler?: AbortHandler;
 
   constructor(options: WebSocketChannelOptions) {
     const { server, path = '/ws' } = options;
@@ -59,6 +98,10 @@ export class WebSocketChannel implements ChannelAdapter {
     this.messageHandler = handler;
   }
 
+  onAbort(handler: AbortHandler): void {
+    this.abortHandler = handler;
+  }
+
   private async handleMessage(ws: WebSocket, data: Buffer, connectionId: string): Promise<void> {
     if (!this.messageHandler) {
       throw new Error('Message handler not set');
@@ -67,14 +110,23 @@ export class WebSocketChannel implements ChannelAdapter {
     let clientMsg: ClientMessage;
     try {
       clientMsg = JSON.parse(data.toString()) as ClientMessage;
-    } catch (err) {
+    } catch {
       logger.error('[ws] invalid JSON connectionId=%s', connectionId);
       this.sendToWs(ws, { type: 'error', error: 'Invalid JSON format' });
       return;
     }
 
-    const userId = clientMsg.sessionId || 'default';
+    if (clientMsg.type === 'abort') {
+      const conn = this.connections.get(connectionId);
+      if (conn && this.abortHandler) {
+        this.abortHandler(conn.userId);
+        this.sendToWs(ws, { type: 'aborted' });
+        logger.info('[ws] aborted connectionId=%s userId=%s', connectionId, conn.userId);
+      }
+      return;
+    }
 
+    const userId = `websocket:${clientMsg.sessionId || 'default'}`;
     this.connections.set(connectionId, { ws, userId });
 
     const channelMsg: ChannelMessage = {
@@ -88,93 +140,19 @@ export class WebSocketChannel implements ChannelAdapter {
 
     const context: ChannelContext = {
       send: async (text: string) => {
-        // Create a properly typed message_end event
-        const messageEndEvent: ServerMessage['event'] = {
-          type: 'message_end',
-          message: {
-            role: 'assistant',
-            content: [{ type: 'text', text }],
-            model: '',
-            provider: '',
-            api: '',
-            usage: {
-              input: 0,
-              output: 0,
-              cacheRead: 0,
-              cacheWrite: 0,
-              totalTokens: 0,
-              cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
-            },
-            stopReason: 'stop',
-            timestamp: Date.now(),
-          },
-        };
-        this.sendToWs(ws, {
-          type: 'event',
-          event: messageEndEvent,
-        });
+        this.sendToWs(ws, { type: 'event', event: createMessageEndEvent(text) });
         this.sendToWs(ws, { type: 'done' });
       },
       sendStream: async (text: string, done: boolean) => {
         if (done) {
           this.sendToWs(ws, { type: 'done' });
         } else {
-          // Create a properly typed message_update event
-          const messageUpdateEvent: ServerMessage['event'] = {
-            type: 'message_update',
-            message: {
-              role: 'assistant',
-              content: [{ type: 'text', text }],
-              model: '',
-              provider: '',
-              api: '',
-              usage: {
-                input: 0,
-                output: 0,
-                cacheRead: 0,
-                cacheWrite: 0,
-                totalTokens: 0,
-                cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
-              },
-              stopReason: 'stop',
-              timestamp: Date.now(),
-            },
-            assistantMessageEvent: {
-              type: 'text_delta',
-              contentIndex: 0,
-              delta: text,
-              partial: {
-                role: 'assistant',
-                content: [{ type: 'text', text }],
-                model: '',
-                provider: '',
-                api: '',
-                usage: {
-                  input: 0,
-                  output: 0,
-                  cacheRead: 0,
-                  cacheWrite: 0,
-                  totalTokens: 0,
-                  cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
-                },
-                stopReason: 'stop',
-                timestamp: Date.now(),
-              },
-            },
-          };
-          this.sendToWs(ws, {
-            type: 'event',
-            event: messageUpdateEvent,
-          });
+          this.sendToWs(ws, { type: 'event', event: createMessageUpdateEvent(text) });
         }
       },
     };
 
-    if (clientMsg.type === 'prompt' || clientMsg.type === 'continue') {
-      await this.messageHandler(channelMsg, context);
-    } else if (clientMsg.type === 'abort') {
-      logger.info('[ws] abort requested connectionId=%s', connectionId);
-    }
+    await this.messageHandler(channelMsg, context);
   }
 
   private sendToWs(ws: WebSocket, msg: ServerMessage): void {

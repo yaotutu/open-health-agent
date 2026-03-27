@@ -25,7 +25,7 @@ export class QQChannel implements ChannelAdapter {
 
       const channelMsg: ChannelMessage = {
         id: event.messageId,
-        userId: event.senderId,
+        userId: `qq:${event.senderId}`,
         content: event.content || '',
         channel: 'qq',
         timestamp: new Date(),
