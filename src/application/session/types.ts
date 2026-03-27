@@ -1,4 +1,7 @@
+// src/application/session/types.ts
+
 import type { Agent } from '@mariozechner/pi-agent-core';
+import type { Message } from '../../infrastructure/storage/session-store.js';
 
 /**
  * 会话 - 与通道无关，按userId管理
@@ -12,8 +15,10 @@ export interface Session {
   createdAt: Date;
   /** 最后活跃时间 */
   lastActiveAt: Date;
-  /** 通道特定的上下文 */
-  context?: unknown;
+  /** 消息历史（内存缓存） */
+  messageHistory: Message[];
+  /** 是否已从存储加载 */
+  loaded: boolean;
 }
 
 /**
@@ -28,4 +33,6 @@ export interface SessionManager {
   remove(userId: string): boolean;
   /** 获取所有会话 */
   list(): string[];
+  /** 保存会话消息 */
+  saveMessage(userId: string, message: Message): Promise<void>;
 }

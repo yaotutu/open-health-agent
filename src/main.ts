@@ -6,7 +6,7 @@ import http from 'http';
 import { config } from 'dotenv';
 import { SERVER_CONFIG } from './config/index.js';
 import { createFileStorage } from './infrastructure/storage/file-storage.js';
-import { createSessionManager } from './application/session/manager.js';
+import { createSimpleSessionManager } from './application/session/manager.js';
 import { createMessageHandler } from './application/message-handler.js';
 import { createHealthAgent } from './application/agent/factory.js';
 import { createWebSocketChannel } from './channels/websocket/server.js';
@@ -25,7 +25,7 @@ async function main() {
   const createAgent = () => createHealthAgent({ storage });
   
   // 3. 会话管理器（按userId）
-  const sessionManager = createSessionManager(createAgent);
+  const sessionManager = createSimpleSessionManager(createAgent);
   
   // 4. 消息处理器（通道无关）
   const messageHandler = createMessageHandler({ sessionManager });
