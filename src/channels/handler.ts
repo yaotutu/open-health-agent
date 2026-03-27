@@ -19,8 +19,8 @@ export const createMessageHandler = (options: CreateMessageHandlerOptions) => {
         const msg = event.message;
         if (Array.isArray(msg.content)) {
           for (const block of msg.content) {
-            if (block.type === 'text') {
-              return (block as { text: string }).text;
+            if (block.type === 'text' && 'text' in block && typeof block.text === 'string') {
+              return block.text;
             }
           }
         }
@@ -40,10 +40,9 @@ export const createMessageHandler = (options: CreateMessageHandlerOptions) => {
       events.push(event);
       if (event.type === 'message_update') {
         const msg = event.message;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const msgContent = (msg as any)?.content;
-        if (msg?.role === 'assistant' && typeof msgContent === 'string') {
-          context.sendStream?.(msgContent, false);
+        // Type guard: check if message has string content
+        if (msg?.role === 'assistant' && typeof msg.content === 'string') {
+          context.sendStream?.(msg.content, false);
         }
       } else if (event.type === 'message_end') {
         context.sendStream?.('', true);

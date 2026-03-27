@@ -64,7 +64,15 @@ export class WebSocketChannel implements ChannelAdapter {
       throw new Error('Message handler not set');
     }
 
-    const clientMsg: ClientMessage = JSON.parse(data.toString());
+    let clientMsg: ClientMessage;
+    try {
+      clientMsg = JSON.parse(data.toString()) as ClientMessage;
+    } catch (err) {
+      logger.error('[ws] invalid JSON connectionId=%s', connectionId);
+      this.sendToWs(ws, { type: 'error', error: 'Invalid JSON format' });
+      return;
+    }
+
     const userId = clientMsg.sessionId || 'default';
 
     this.connections.set(connectionId, { ws, userId });
@@ -78,15 +86,30 @@ export class WebSocketChannel implements ChannelAdapter {
 
     const context: ChannelContext = {
       send: async (text: string) => {
+        // Create a properly typed message_end event
+        const messageEndEvent: ServerMessage['event'] = {
+          type: 'message_end',
+          message: {
+            role: 'assistant',
+            content: [{ type: 'text', text }],
+            model: '',
+            provider: '',
+            api: '',
+            usage: {
+              input: 0,
+              output: 0,
+              cacheRead: 0,
+              cacheWrite: 0,
+              totalTokens: 0,
+              cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+            },
+            stopReason: 'stop',
+            timestamp: Date.now(),
+          },
+        };
         this.sendToWs(ws, {
           type: 'event',
-          event: {
-            type: 'message_end',
-            message: {
-              role: 'assistant',
-              content: [{ type: 'text', text }],
-            },
-          } as ServerMessage['event'],
+          event: messageEndEvent,
         });
         this.sendToWs(ws, { type: 'done' });
       },
@@ -94,13 +117,52 @@ export class WebSocketChannel implements ChannelAdapter {
         if (done) {
           this.sendToWs(ws, { type: 'done' });
         } else {
+          // Create a properly typed message_update event
+          const messageUpdateEvent: ServerMessage['event'] = {
+            type: 'message_update',
+            message: {
+              role: 'assistant',
+              content: [{ type: 'text', text }],
+              model: '',
+              provider: '',
+              api: '',
+              usage: {
+                input: 0,
+                output: 0,
+                cacheRead: 0,
+                cacheWrite: 0,
+                totalTokens: 0,
+                cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+              },
+              stopReason: 'stop',
+              timestamp: Date.now(),
+            },
+            assistantMessageEvent: {
+              type: 'text_delta',
+              contentIndex: 0,
+              delta: text,
+              partial: {
+                role: 'assistant',
+                content: [{ type: 'text', text }],
+                model: '',
+                provider: '',
+                api: '',
+                usage: {
+                  input: 0,
+                  output: 0,
+                  cacheRead: 0,
+                  cacheWrite: 0,
+                  totalTokens: 0,
+                  cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+                },
+                stopReason: 'stop',
+                timestamp: Date.now(),
+              },
+            },
+          };
           this.sendToWs(ws, {
             type: 'event',
-            event: {
-              type: 'message_update',
-              message: { role: 'assistant', content: text },
-              assistantMessageEvent: { type: 'text_delta', text: { type: 'text', text } },
-            } as unknown as ServerMessage['event'],
+            event: messageUpdateEvent,
           });
         }
       },
