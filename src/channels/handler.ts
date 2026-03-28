@@ -3,6 +3,7 @@ import type { SessionManager } from '../session';
 import type { Store } from '../store';
 import type { ChannelMessage, ChannelContext } from './types';
 import { logger } from '../infrastructure/logger';
+import { assembleSystemPrompt } from '../prompts/assembler';
 
 export interface CreateMessageHandlerOptions {
   sessions: SessionManager;
@@ -74,14 +75,19 @@ export const createMessageHandler = (options: CreateMessageHandlerOptions) => {
         ...(imageMetadata ? { metadata: JSON.stringify({ images: imageMetadata }) } : {}),
       });
 
-      // 2. 调用 Agent，如有图片则传入
+      // 2. 每次消息前刷新动态上下文（用户档案、最近记录、活跃症状等）
+      // 确保每次对话都使用最新的用户数据，而不是初始化时的快照
+      const updatedPrompt = await assembleSystemPrompt(store, userId);
+      session.agent.setSystemPrompt(updatedPrompt);
+
+      // 3. 调用 Agent，如有图片则传入
       if (images && images.length > 0) {
         await session.agent.prompt(content, images);
       } else {
         await session.agent.prompt(content);
       }
 
-      // 3. 提取响应并保存
+      // 4. 提取响应并保存
       const assistantText = extractAssistantText(events);
       if (!assistantText && events.length > 0) {
         logger.warn('[handler] no assistant text extracted events=%d userId=%s', events.length, userId);

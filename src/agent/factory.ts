@@ -3,7 +3,7 @@ import { getModel, streamSimple, createAssistantMessageEventStream } from '@mari
 import type { Context, AssistantMessageEventStream, UserMessage, AssistantMessage } from '@mariozechner/pi-ai';
 import type { Store, Message } from '../store';
 import { logger } from '../infrastructure/logger';
-import { HEALTH_ADVISOR_PROMPT } from './prompt';
+import { assembleSystemPrompt } from '../prompts/assembler';
 import { createTools } from './tools';
 
 const LLM_PROVIDER = process.env.LLM_PROVIDER || 'anthropic';
@@ -108,39 +108,42 @@ export const createHealthAgent = async (options: CreateAgentOptions) => {
 
   const agentModel = getModel(LLM_PROVIDER as any, LLM_MODEL);
   const tools = createTools(store, userId);
-  // 工具列表：包含所有记录工具（身体、饮食、症状、运动、睡眠、饮水）和档案工具
+  // 工具列表：包含所有记录、查询、档案、症状解决和记忆工具（共 18 个）
   const toolList = [
+    // 记录工具：各类健康数据的录入
     tools.recordBody,
     tools.recordDiet,
     tools.recordSymptom,
     tools.recordExercise,
     tools.recordSleep,
     tools.recordWater,
+    // 档案工具：获取和更新用户个人健康档案
     tools.getProfile,
     tools.updateProfile,
+    // 查询工具：按时间范围查询各类型历史记录
+    tools.queryBodyRecords,
+    tools.queryDietRecords,
+    tools.querySymptomRecords,
+    tools.queryExerciseRecords,
+    tools.querySleepRecords,
+    tools.queryWaterRecords,
+    // 症状解决工具：标记症状为已解决
+    tools.resolveSymptom,
+    // 记忆工具：长期记忆的存储、查询和删除
+    tools.saveMemory,
+    tools.queryMemories,
+    tools.deleteMemory,
   ];
 
-  // 查询用户档案，注入到系统提示词中实现个性化
-  let systemPrompt = HEALTH_ADVISOR_PROMPT;
-  const profile = await store.profile.get(userId);
-  if (profile) {
-    // 解析 JSON 数组字段：疾病史和过敏史在数据库中以 JSON 字符串形式存储
-    const parsed = {
-      ...profile,
-      diseases: profile.diseases ? JSON.parse(profile.diseases) : [],
-      allergies: profile.allergies ? JSON.parse(profile.allergies) : [],
-    };
-    systemPrompt += `\n\n## 当前用户档案\n${JSON.stringify(parsed, null, 2)}`;
-  } else {
-    // 用户尚未建立档案，提示 Agent 引导用户完善信息
-    systemPrompt += '\n\n## 当前用户档案\n该用户尚未建立个人档案，请在合适时机引导用户完善基本信息。';
-  }
+  // 使用 assembler 动态组装系统提示词
+  // 包含静态模板（角色、能力、规则）和动态上下文（档案、最近记录、活跃症状、记忆等）
+  const systemPrompt = await assembleSystemPrompt(store, userId);
 
   logger.info('[agent] created provider=%s model=%s tools=%d', LLM_PROVIDER, LLM_MODEL, toolList.length);
 
   const agent = new Agent({
     initialState: {
-      // 使用注入了用户档案的个性化系统提示词
+      // 使用动态组装的系统提示词（包含用户档案、最近记录、活跃症状等上下文）
       systemPrompt,
       model: agentModel,
       tools: toolList,
