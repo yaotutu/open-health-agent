@@ -133,6 +133,7 @@ export class WebSocketChannel implements ChannelAdapter {
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
       userId,
       content: clientMsg.content || '',
+      images: clientMsg.images,  // 新增：映射图片数据
       timestamp: new Date(),
       channel: 'websocket',
       metadata: { connectionId, messageType: clientMsg.type },

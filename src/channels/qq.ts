@@ -37,6 +37,27 @@ export class QQChannel implements ChannelAdapter {
         },
       };
 
+      // 从附件中提取图片，下载并转为 base64
+      if (event.attachments && event.attachments.length > 0) {
+        const images: Array<{ data: string; mimeType: string }> = [];
+        for (const attachment of event.attachments) {
+          // 注意：QQ Bot API 使用 content_type（蛇形命名），不是 contentType
+          if (attachment.content_type?.startsWith('image/') && attachment.url) {
+            try {
+              const response = await fetch(attachment.url);
+              const buffer = await response.arrayBuffer();
+              const base64 = Buffer.from(buffer).toString('base64');
+              images.push({ data: base64, mimeType: attachment.content_type });
+            } catch (err) {
+              logger.error('[qq] 图片下载失败 url=%s error=%s', attachment.url, (err as Error).message);
+            }
+          }
+        }
+        if (images.length > 0) {
+          channelMsg.images = images;
+        }
+      }
+
       const context: ChannelContext = {
         send: async (text: string) => {
           await this.client.reply(event, text);

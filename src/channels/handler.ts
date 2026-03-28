@@ -51,15 +51,28 @@ export const createMessageHandler = (options: CreateMessageHandlerOptions) => {
     });
 
     try {
-      // 1. 保存用户消息
+      // 提取图片数据，转换为 Agent 所需的 ImageContent 格式
+      const images = message.images?.map(img => ({
+        type: 'image' as const,
+        data: img.data,
+        mimeType: img.mimeType,
+      }));
+
+      // 1. 保存用户消息到数据库（图片信息存入 metadata 字段）
       await store.messages.appendMessage(userId, {
         role: 'user',
         content,
         timestamp: Date.now(),
+        // 条件展开，避免传 undefined 给 Drizzle ORM
+        ...(images ? { metadata: JSON.stringify({ images }) } : {}),
       });
 
-      // 2. 调用 Agent
-      await session.agent.prompt(content);
+      // 2. 调用 Agent，如有图片则传入
+      if (images && images.length > 0) {
+        await session.agent.prompt(content, images);
+      } else {
+        await session.agent.prompt(content);
+      }
 
       // 3. 提取响应并保存
       const assistantText = extractAssistantText(events);

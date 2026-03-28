@@ -23,6 +23,8 @@ export interface ChannelMessage {
   channel: string;
   /** 通道特定的额外数据 */
   metadata?: Record<string, unknown>;
+  /** 图片列表（base64 数据） */
+  images?: Array<{ data: string; mimeType: string }>;
 }
 
 /**
@@ -84,6 +86,8 @@ export interface ClientMessage {
   type: 'prompt' | 'continue' | 'abort';
   content?: string;
   sessionId?: string;
+  /** 图片列表（base64 数据） */
+  images?: Array<{ data: string; mimeType: string }>;
 }
 
 export interface ServerMessage {
