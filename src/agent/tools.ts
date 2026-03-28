@@ -59,8 +59,8 @@ const RecordExerciseParamsSchema = Type.Object({
 const RecordSleepParamsSchema = Type.Object({
   duration: Type.Number({ description: '睡眠时长 分钟' }),
   quality: Type.Optional(Type.Number({ description: '睡眠质量 1-5，5为最好' })),
-  bedTime: Type.Optional(Type.Number({ description: '入睡时间 时间戳' })),
-  wakeTime: Type.Optional(Type.Number({ description: '醒来时间 时间戳' })),
+  bedTime: Type.Optional(Type.String({ description: '入睡时间，格式 "YYYY-MM-DD HH:mm"，如 "2026-03-28 02:00"' })),
+  wakeTime: Type.Optional(Type.String({ description: '醒来时间，格式 "YYYY-MM-DD HH:mm"，如 "2026-03-28 08:00"' })),
   deepSleep: Type.Optional(Type.Number({ description: '深睡时长 分钟' })),
   note: Type.Optional(Type.String({ description: '备注' })),
 });
@@ -288,11 +288,25 @@ export const createTools = (store: Store, userId: string) => {
     description: '记录用户的睡眠数据，包括时长、质量、入睡和醒来时间等',
     parameters: RecordSleepParamsSchema,
     execute: async (_toolCallId, params, _signal) => {
+      // 解析 bedTime/wakeTime 字符串为毫秒时间戳
+      // LLM 传入格式为 "YYYY-MM-DD HH:mm"，由代码负责转换，避免 LLM 计算时间戳出错
+      const parseDateTime = (str: string | undefined): number | undefined => {
+        if (!str) return undefined;
+        // 支持 "YYYY-MM-DD HH:mm" 或 "YYYY-MM-DDTHH:mm" 格式
+        const match = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})[T ](\d{1,2}):(\d{1,2})/);
+        if (match) {
+          return new Date(+match[1], +match[2] - 1, +match[3], +match[4], +match[5]).getTime();
+        }
+        // 尝试直接解析
+        const d = new Date(str);
+        return isNaN(d.getTime()) ? undefined : d.getTime();
+      };
+
       const record = await store.sleep.record(userId, {
         duration: params.duration,
         quality: params.quality,
-        bedTime: params.bedTime,
-        wakeTime: params.wakeTime,
+        bedTime: parseDateTime(params.bedTime),
+        wakeTime: parseDateTime(params.wakeTime),
         deepSleep: params.deepSleep,
         note: params.note,
       });
