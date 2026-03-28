@@ -28,10 +28,12 @@ export interface CreateSessionManagerOptions {
   cleanupIntervalMs?: number;
   /** 会话过期时的回调，用于生成对话摘要等 */
   onSessionExpired?: (userId: string) => Promise<void>;
+  /** 测试模式：不加载历史消息，每次会话从空白开始 */
+  noHistory?: boolean;
 }
 
 export const createSessionManager = (options: CreateSessionManagerOptions): SessionManager => {
-  const { createAgent, store, ttlMs = DEFAULT_TTL_MS, cleanupIntervalMs = DEFAULT_CLEANUP_INTERVAL_MS, onSessionExpired } = options;
+  const { createAgent, store, ttlMs = DEFAULT_TTL_MS, cleanupIntervalMs = DEFAULT_CLEANUP_INTERVAL_MS, onSessionExpired, noHistory } = options;
   const sessions = new Map<string, Session>();
 
   /**
@@ -68,11 +70,15 @@ export const createSessionManager = (options: CreateSessionManagerOptions): Sess
     }
 
     let messages: Message[] = [];
-    try {
-      messages = await store.messages.getMessages(userId);
-      logger.info('[session] loaded %d messages userId=%s', messages.length, userId);
-    } catch (err) {
-      logger.error('[session] failed to load messages userId=%s error=%s', userId, (err as Error).message);
+    if (!noHistory) {
+      try {
+        messages = await store.messages.getMessages(userId);
+        logger.info('[session] loaded %d messages userId=%s', messages.length, userId);
+      } catch (err) {
+        logger.error('[session] failed to load messages userId=%s error=%s', userId, (err as Error).message);
+      }
+    } else {
+      logger.info('[session] test mode: skipping message history userId=%s', userId);
     }
 
     session = {

@@ -14,6 +14,8 @@ import { logger } from './infrastructure/logger';
 const PORT = parseInt(process.env.PORT || '3001', 10);
 const DB_PATH = process.env.DB_PATH || './workspace/healthclaw.db';
 const SHUTDOWN_TIMEOUT = 10000;
+/** 测试模式：不加载历史消息，不生成对话摘要 */
+const TEST_MODE = process.env.TEST_MODE === '1';
 
 /**
  * 使用 LLM 生成对话摘要
@@ -62,6 +64,7 @@ async function generateConversationSummary(messages: Message[]): Promise<string>
 
 async function main() {
   logger.info('[app] starting health advisor agent...');
+  if (TEST_MODE) logger.info('[app] TEST_MODE enabled: no history, no summaries');
 
   // 1. 初始化存储
   const store = new Store(DB_PATH);
@@ -75,8 +78,9 @@ async function main() {
   const sessions = createSessionManager({
     createAgent,
     store,
-    /** 会话过期时自动生成对话摘要并保存到数据库 */
-    onSessionExpired: async (userId: string) => {
+    noHistory: TEST_MODE,
+    /** 会话过期时自动生成对话摘要并保存到数据库（测试模式下跳过） */
+    onSessionExpired: TEST_MODE ? undefined : async (userId: string) => {
       try {
         const messages = await store.messages.getMessages(userId);
         // 至少需要2轮对话（4条消息）才生成摘要

@@ -202,6 +202,11 @@ export async function assembleSystemPrompt(store: Store, userId: string): Promis
   parts.push(readPromptDir('rules'));
 
   // 2. 动态上下文（每次从数据库查询最新数据）
+  // 注入当前日期时间，使 LLM 能够理解"昨天"、"前天"、"最近两天"等相对时间表述
+  const now = new Date();
+  const currentDateTime = `## 当前时间\n${now.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', weekday: 'long' })}\n时区: Asia/Shanghai (UTC+8)\n时间戳: ${now.getTime()}`;
+  parts.push(currentDateTime);
+
   // 获取用户档案
   parts.push(formatProfile(await store.profile.get(userId)));
 
