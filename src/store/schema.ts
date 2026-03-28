@@ -1,4 +1,4 @@
-import { sqliteTable, text, real, integer } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, real, integer, index } from 'drizzle-orm/sqlite-core';
 
 /**
  * 用户档案表
@@ -70,8 +70,10 @@ export const dietRecords = sqliteTable('diet_records', {
   carbs: real('carbs'),
   /** 脂肪 g */
   fat: real('fat'),
+  /** 钠 mg */
+  sodium: real('sodium'),
   /** 餐次：breakfast(早餐)/lunch(午餐)/dinner(晚餐)/snack(加餐) */
-  mealType: text('meal_type', { enum: ['breakfast', 'lunch', 'dinner', 'snack'] }),
+  mealType: text('meal_type'),
   /** 备注 */
   note: text('note'),
   /** 记录时间戳 */
@@ -81,7 +83,8 @@ export const dietRecords = sqliteTable('diet_records', {
 /**
  * 症状记录表
  * 存储用户的症状和不适记录，用于健康追踪
- * 支持关联到饮食或运动记录，帮助分析症状诱因
+ * 支持关联到其他类型的记录（饮食、运动等），帮助分析症状诱因
+ * 支持记录症状的身体部位和解决时间
  */
 export const symptomRecords = sqliteTable('symptom_records', {
   /** 记录ID，自增主键 */
@@ -89,15 +92,17 @@ export const symptomRecords = sqliteTable('symptom_records', {
   /** 用户ID */
   userId: text('user_id').notNull(),
   /** 症状描述 */
-  symptom: text('symptom').notNull(),
-  /** 严重程度 1-5 */
+  description: text('description').notNull(),
+  /** 严重程度 1-10 */
   severity: integer('severity'),
-  /** 可能诱因 */
-  trigger: text('trigger'),
+  /** 身体部位 */
+  bodyPart: text('body_part'),
   /** 关联类型：diet(饮食)/exercise(运动)/null(无关联) */
-  relatedType: text('related_type', { enum: ['diet', 'exercise'] }),
+  relatedType: text('related_type'),
   /** 关联记录ID */
   relatedId: integer('related_id'),
+  /** 症状解决时间戳 */
+  resolvedAt: integer('resolved_at'),
   /** 备注 */
   note: text('note'),
   /** 记录时间戳 */
@@ -107,7 +112,7 @@ export const symptomRecords = sqliteTable('symptom_records', {
 /**
  * 运动记录表
  * 存储用户的运动活动信息
- * 支持记录运动类型、时长、消耗热量和强度等级
+ * 支持记录运动类型、时长、消耗热量、心率、距离等详细数据
  */
 export const exerciseRecords = sqliteTable('exercise_records', {
   /** 记录ID，自增主键 */
@@ -115,13 +120,17 @@ export const exerciseRecords = sqliteTable('exercise_records', {
   /** 用户ID */
   userId: text('user_id').notNull(),
   /** 运动类型 */
-  exerciseType: text('exercise_type').notNull(),
+  type: text('type').notNull(),
   /** 时长 分钟 */
-  duration: real('duration'),
+  duration: integer('duration'),
   /** 消耗热量 kcal */
-  caloriesBurned: real('calories_burned'),
-  /** 强度：low(低)/medium(中)/high(高) */
-  intensity: text('intensity', { enum: ['low', 'medium', 'high'] }),
+  calories: integer('calories'),
+  /** 平均心率 bpm */
+  heartRateAvg: integer('heart_rate_avg'),
+  /** 最大心率 bpm */
+  heartRateMax: integer('heart_rate_max'),
+  /** 距离 km */
+  distance: real('distance'),
   /** 备注 */
   note: text('note'),
   /** 记录时间戳 */
@@ -131,21 +140,23 @@ export const exerciseRecords = sqliteTable('exercise_records', {
 /**
  * 睡眠记录表
  * 存储用户的睡眠信息
- * 支持记录睡眠时长、质量评分和入睡/起床时间
+ * 支持记录睡眠时长、质量评分、入睡/起床时间和深睡时长
  */
 export const sleepRecords = sqliteTable('sleep_records', {
   /** 记录ID，自增主键 */
   id: integer('id').primaryKey({ autoIncrement: true }),
   /** 用户ID */
   userId: text('user_id').notNull(),
-  /** 睡眠时长 小时 */
-  duration: real('duration'),
+  /** 睡眠时长 分钟 */
+  duration: integer('duration'),
   /** 睡眠质量 1-5 */
   quality: integer('quality'),
   /** 入睡时间戳 */
   bedTime: integer('bed_time'),
   /** 起床时间戳 */
   wakeTime: integer('wake_time'),
+  /** 深睡时长 分钟 */
+  deepSleep: integer('deep_sleep'),
   /** 备注 */
   note: text('note'),
   /** 记录时间戳 */
@@ -155,17 +166,15 @@ export const sleepRecords = sqliteTable('sleep_records', {
 /**
  * 饮水记录表
  * 存储用户的饮水摄入信息
- * 支持自定义单位（毫升、杯等）
+ * 统一使用毫升(ml)作为单位
  */
 export const waterRecords = sqliteTable('water_records', {
   /** 记录ID，自增主键 */
   id: integer('id').primaryKey({ autoIncrement: true }),
   /** 用户ID */
   userId: text('user_id').notNull(),
-  /** 饮水量 */
-  amount: real('amount').notNull(),
-  /** 单位 */
-  unit: text('unit'),
+  /** 饮水量 ml */
+  amount: integer('amount').notNull(),
   /** 备注 */
   note: text('note'),
   /** 记录时间戳 */
@@ -191,6 +200,52 @@ export const messages = sqliteTable('messages', {
   /** 消息时间戳 */
   timestamp: integer('timestamp').notNull(),
 });
+
+/**
+ * 记忆表
+ * 存储 Agent 从对话中提取的关于用户的长期记忆
+ * 用于跨会话的个性化健康建议
+ */
+export const memories = sqliteTable('memories', {
+  /** 记忆ID，自增主键 */
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  /** 用户ID */
+  userId: text('user_id').notNull(),
+  /** 记忆内容 */
+  content: text('content').notNull(),
+  /** 记忆分类 */
+  category: text('category'),
+  /** 创建时间戳 */
+  createdAt: integer('created_at').notNull(),
+}, (table) => [
+  /** 用户ID索引，加速按用户查询记忆 */
+  index('memories_user_id_idx').on(table.userId),
+]);
+
+/**
+ * 对话摘要表
+ * 存储用户会话的对话摘要，用于上下文压缩和长期记忆
+ * 当会话消息过多时，将旧消息压缩为摘要以节省 token
+ */
+export const conversationSummaries = sqliteTable('conversation_summaries', {
+  /** 摘要ID，自增主键 */
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  /** 用户ID */
+  userId: text('user_id').notNull(),
+  /** 对话摘要内容 */
+  summary: text('summary').notNull(),
+  /** 摘要涵盖的消息数量 */
+  messageCount: integer('message_count'),
+  /** 摘要涵盖的起始时间戳 */
+  startTimestamp: integer('start_timestamp').notNull(),
+  /** 摘要涵盖的结束时间戳 */
+  endTimestamp: integer('end_timestamp').notNull(),
+  /** 创建时间戳 */
+  createdAt: integer('created_at').notNull(),
+}, (table) => [
+  /** 用户ID索引，加速按用户查询对话摘要 */
+  index('summaries_user_id_idx').on(table.userId),
+]);
 
 /** 用户档案查询结果类型 */
 export type UserProfile = typeof userProfiles.$inferSelect;
@@ -231,3 +286,13 @@ export type NewWaterRecord = typeof waterRecords.$inferInsert;
 export type Message = typeof messages.$inferSelect;
 /** 消息插入类型 */
 export type NewMessage = typeof messages.$inferInsert;
+
+/** 记忆查询结果类型 */
+export type MemoryRecord = typeof memories.$inferSelect;
+/** 记忆插入类型 */
+export type NewMemoryRecord = typeof memories.$inferInsert;
+
+/** 对话摘要查询结果类型 */
+export type ConversationSummary = typeof conversationSummaries.$inferSelect;
+/** 对话摘要插入类型 */
+export type NewConversationSummary = typeof conversationSummaries.$inferInsert;
