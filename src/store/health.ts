@@ -125,6 +125,7 @@ export const createHealthStore = (db: Db) => {
         AND ${healthRecords.type} = 'diet'
         AND ${healthRecords.timestamp} >= ${cutoff}
         AND ${healthRecords.detail} IS NOT NULL
+        AND json_extract(${healthRecords.detail}, '$.food') IS NOT NULL
       GROUP BY json_extract(${healthRecords.detail}, '$.food')
       ORDER BY count DESC
       LIMIT 20

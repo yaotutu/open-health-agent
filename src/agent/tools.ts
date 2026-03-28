@@ -174,7 +174,7 @@ export const createTools = (store: Store, userId: string) => {
       if (!profile) {
         return {
           content: [{ type: 'text', text: '用户尚未建立个人档案' }],
-          details: {},
+          details: { exists: false },
         };
       }
 
@@ -186,8 +186,8 @@ export const createTools = (store: Store, userId: string) => {
       };
 
       return {
-        content: [{ type: 'text', text: JSON.stringify(parsed) }],
-        details: { profile: parsed },
+        content: [{ type: 'text', text: `用户档案: ${JSON.stringify(parsed, null, 2)}` }],
+        details: { exists: true, profile: parsed },
       };
     },
   };
