@@ -1,12 +1,13 @@
 import { createDb, type Db } from './db';
 import { createHealthStore, type HealthStore } from './health';
 import { createMessageStore, type MessageStore } from './messages';
+import { createProfileStore, type ProfileStore } from './profile';
 import { healthRecords, messages, userProfiles } from './schema';
 import type { Database } from 'bun:sqlite';
 
-export { createDb, createHealthStore, createMessageStore };
+export { createDb, createHealthStore, createMessageStore, createProfileStore };
 export { healthRecords, messages, userProfiles };
-export type { Db, HealthStore, MessageStore };
+export type { Db, HealthStore, MessageStore, ProfileStore };
 
 export type HealthRecord = typeof healthRecords.$inferSelect;
 export type Message = typeof messages.$inferSelect;
@@ -18,6 +19,7 @@ export class Store {
   readonly sqlite: Database;
   readonly health: HealthStore;
   readonly messages: MessageStore;
+  readonly profile: ProfileStore;
 
   constructor(dbPath: string) {
     const { db, sqlite } = createDb(dbPath);
@@ -25,6 +27,7 @@ export class Store {
     this.sqlite = sqlite;
     this.health = createHealthStore(this.db);
     this.messages = createMessageStore(this.db);
+    this.profile = createProfileStore(this.db);
     this.initTables();
   }
 
