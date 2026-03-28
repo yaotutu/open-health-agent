@@ -26,16 +26,31 @@ export interface CreateSessionManagerOptions {
   store: Store;
   ttlMs?: number;
   cleanupIntervalMs?: number;
+  /** 会话过期时的回调，用于生成对话摘要等 */
+  onSessionExpired?: (userId: string) => Promise<void>;
 }
 
 export const createSessionManager = (options: CreateSessionManagerOptions): SessionManager => {
-  const { createAgent, store, ttlMs = DEFAULT_TTL_MS, cleanupIntervalMs = DEFAULT_CLEANUP_INTERVAL_MS } = options;
+  const { createAgent, store, ttlMs = DEFAULT_TTL_MS, cleanupIntervalMs = DEFAULT_CLEANUP_INTERVAL_MS, onSessionExpired } = options;
   const sessions = new Map<string, Session>();
 
-  const cleanup = () => {
+  /**
+   * 定期清理过期会话
+   * 遍历所有会话，如果超过 TTL 未活跃则触发过期回调并删除会话
+   * 过期回调用于生成对话摘要等清理操作
+   */
+  const cleanup = async () => {
     const now = Date.now();
     for (const [userId, session] of sessions) {
       if (now - session.lastActiveAt.getTime() > ttlMs) {
+        // 会话过期前触发回调（如生成对话摘要）
+        if (onSessionExpired) {
+          try {
+            await onSessionExpired(userId);
+          } catch (err) {
+            logger.error('[session] expired callback failed userId=%s error=%s', userId, (err as Error).message);
+          }
+        }
         sessions.delete(userId);
         logger.info('[session] expired userId=%s', userId);
       }
