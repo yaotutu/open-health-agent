@@ -160,7 +160,7 @@ bun run typecheck  # 类型检查
 ```bash
 # 服务器
 PORT=3001
-DB_PATH=./workspace/healthclaw.db
+DB_PATH=./data/healthclaw.db
 
 # QQ Bot (可选)
 QQBOT_APP_ID=your_app_id

@@ -12,7 +12,7 @@ import { startHeartbeatScheduler } from './heartbeat';
 import { logger, dbLogWriter } from './infrastructure/logger';
 
 const PORT = parseInt(process.env.PORT || '3001', 10);
-const DB_PATH = process.env.DB_PATH || './workspace/healthclaw.db';
+const DB_PATH = process.env.DB_PATH || './data/healthclaw.db';
 const SHUTDOWN_TIMEOUT = 10000;
 /** 测试模式：不加载历史消息，不生成对话摘要 */
 const TEST_MODE = process.env.TEST_MODE === '1';
