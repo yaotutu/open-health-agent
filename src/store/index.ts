@@ -9,6 +9,7 @@ import { createSymptomStore, type SymptomStore } from './symptom';
 import { createWaterStore, type WaterStore } from './water';
 import { createMemoryStore, type MemoryStore } from './memory';
 import { createSummaryStore, type SummaryStore } from './summary';
+import { createLogStore, type LogStore } from './logs';
 import {
   userProfiles,
   bodyRecords,
@@ -39,7 +40,8 @@ export {
   createSymptomStore,
   createWaterStore,
   createMemoryStore,
-  createSummaryStore
+  createSummaryStore,
+  createLogStore,
 };
 
 // 导出所有 schema 表
@@ -69,6 +71,7 @@ export type {
   WaterStore,
   MemoryStore,
   SummaryStore,
+  LogStore,
   Message,
   UserProfile,
   MemoryRecord,
@@ -95,6 +98,9 @@ export class Store {
   readonly memory: MemoryStore;
   readonly summary: SummaryStore;
 
+  // 日志存储（写入数据库，不输出到控制台）
+  readonly logs: LogStore;
+
   constructor(dbPath: string) {
     const { db, sqlite } = createDb(dbPath);
     this.db = db;
@@ -113,6 +119,9 @@ export class Store {
     this.summary = createSummaryStore(this.db);
 
     this.initTables();
+
+    // 日志存储必须在 initTables() 之后创建，因为 prepare 需要 logs 表已存在
+    this.logs = createLogStore(this.sqlite);
   }
 
   /**
@@ -273,6 +282,23 @@ export class Store {
     this.sqlite.run(`CREATE INDEX IF NOT EXISTS idx_water_user_id ON water_records(user_id)`);
     this.sqlite.run(`CREATE INDEX IF NOT EXISTS memories_user_id_idx ON memories(user_id)`);
     this.sqlite.run(`CREATE INDEX IF NOT EXISTS summaries_user_id_idx ON conversation_summaries(user_id)`);
+
+    // 创建应用日志表
+    // 所有日志写入此表（info 及以上级别），控制台不输出，需要时查询数据库
+    this.sqlite.run(`
+      CREATE TABLE IF NOT EXISTS logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        level INTEGER NOT NULL,
+        level_name TEXT NOT NULL,
+        msg TEXT NOT NULL,
+        time TEXT NOT NULL,
+        data TEXT,
+        module TEXT
+      )
+    `);
+    this.sqlite.run(`CREATE INDEX IF NOT EXISTS idx_logs_time ON logs(time)`);
+    this.sqlite.run(`CREATE INDEX IF NOT EXISTS idx_logs_module ON logs(module)`);
+    this.sqlite.run(`CREATE INDEX IF NOT EXISTS idx_logs_level ON logs(level)`);
   }
 
   /** 关闭数据库连接 */

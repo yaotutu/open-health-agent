@@ -9,7 +9,7 @@ import { createSessionManager } from './session';
 import { createMessageHandler, createWebSocketChannel, createQQChannel } from './channels';
 import type { ChannelAdapter } from './channels';
 import { startHeartbeatScheduler } from './heartbeat';
-import { logger } from './infrastructure/logger';
+import { logger, dbLogWriter } from './infrastructure/logger';
 
 const PORT = parseInt(process.env.PORT || '3001', 10);
 const DB_PATH = process.env.DB_PATH || './workspace/healthclaw.db';
@@ -68,6 +68,8 @@ async function main() {
 
   // 1. 初始化存储
   const store = new Store(DB_PATH);
+  // 将日志存储注入 logger，之后所有日志将写入数据库
+  dbLogWriter.init(store.logs);
   logger.info('[app] database initialized path=%s', DB_PATH);
 
   // 2. 创建 Agent 工厂（异步函数，因为需要查询用户档案）

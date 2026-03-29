@@ -140,17 +140,10 @@ export class WebSocketChannel implements ChannelAdapter {
     };
 
     const context: ChannelContext = {
-      capabilities: { streaming: true },
+      // 禁用流式：统一发送完整响应
       send: async (text: string) => {
         this.sendToWs(ws, { type: 'event', event: createMessageEndEvent(text) });
         this.sendToWs(ws, { type: 'done' });
-      },
-      sendStream: async (text: string, done: boolean) => {
-        if (done) {
-          this.sendToWs(ws, { type: 'done' });
-        } else {
-          this.sendToWs(ws, { type: 'event', event: createMessageUpdateEvent(text) });
-        }
       },
     };
 

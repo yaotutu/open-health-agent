@@ -37,18 +37,10 @@ export const createMessageHandler = (options: CreateMessageHandlerOptions) => {
     const session = await sessions.getOrCreate(userId);
     const events: AgentEvent[] = [];
 
+    // 禁用流式：所有通道统一通过 send() 发送完整响应
+    // 避免流式传输过程中的编码和解析问题
     const unsubscribe = session.agent.subscribe((event) => {
       events.push(event);
-      if (context.capabilities?.streaming) {
-        if (event.type === 'message_update') {
-          const msg = event.message;
-          if (msg?.role === 'assistant' && typeof msg.content === 'string') {
-            context.sendStream?.(msg.content, false);
-          }
-        } else if (event.type === 'message_end') {
-          context.sendStream?.('', true);
-        }
-      }
     });
 
     try {

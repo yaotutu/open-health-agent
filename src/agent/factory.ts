@@ -60,9 +60,48 @@ const convertMessages = (messages: Message[]): Array<UserMessage | AssistantMess
   return result;
 };
 
+/**
+ * 提取消息中的文本内容（用于日志记录）
+ * 支持字符串和数组两种 content 格式
+ * @param msg LLM 消息对象
+ * @returns 提取的文本内容
+ */
+const extractTextFromMsg = (msg: any): string => {
+  if (typeof msg.content === 'string') return msg.content;
+  if (Array.isArray(msg.content)) {
+    return msg.content
+      .filter((b: any) => b.type === 'text')
+      .map((b: any) => b.text)
+      .join('');
+  }
+  return '';
+};
+
+/**
+ * 创建带日志记录的流式函数
+ * 记录 LLM 的完整输入（系统提示词 + 消息列表）和输出（模型回复文本）到数据库
+ * 方便排查模型行为异常、编码问题等
+ */
 const createLoggingStreamFn = () => {
   return (model: unknown, context: Context, options?: unknown): AssistantMessageEventStream => {
-    logger.info('[llm] request');
+    // 记录 LLM 输入：系统提示词摘要和完整消息列表
+    logger.info(
+      { module: 'llm', systemPrompt: context.systemPrompt?.substring(0, 200), messageCount: context.messages.length },
+      '[llm] request systemPrompt=%s... messages=%d',
+      context.systemPrompt?.substring(0, 50),
+      context.messages.length
+    );
+
+    // 记录每条输入消息的角色和内容摘要
+    for (const msg of context.messages) {
+      const text = extractTextFromMsg(msg);
+      logger.info(
+        { module: 'llm', role: msg.role, content: text },
+        '[llm] input role=%s length=%d',
+        msg.role,
+        text.length
+      );
+    }
 
     const originalStream = streamSimple(model as any, context, options as any);
     const loggedStream = createAssistantMessageEventStream();
@@ -78,11 +117,36 @@ const createLoggingStreamFn = () => {
         }
         loggedStream.end();
         if (finalMessage) {
-          logger.info('[llm] response');
+          // 提取输出中的所有文本块和 thinking 块，完整记录
+          const output = finalMessage as any;
+          const textBlocks = output.content?.filter((b: any) => b.type === 'text') ?? [];
+          const thinkingBlocks = output.content?.filter((b: any) => b.type === 'thinking') ?? [];
+
+          for (const block of textBlocks) {
+            logger.info(
+              { module: 'llm', outputText: block.text },
+              '[llm] output text length=%d',
+              block.text?.length ?? 0
+            );
+          }
+          for (const block of thinkingBlocks) {
+            logger.info(
+              { module: 'llm', thinkingText: block.thinking, hasSignature: !!block.thinkingSignature },
+              '[llm] output thinking length=%d',
+              block.thinking?.length ?? 0
+            );
+          }
+
+          // 记录 usage 和 stopReason
+          logger.info(
+            { module: 'llm', usage: output.usage, stopReason: output.stopReason },
+            '[llm] response stopReason=%s',
+            output.stopReason
+          );
         }
       } catch (err) {
         loggedStream.end();
-        logger.error('[llm] error=%s', (err as Error).message);
+        logger.error({ module: 'llm', error: (err as Error).message }, '[llm] error=%s', (err as Error).message);
       }
     })();
 
