@@ -1,6 +1,7 @@
-import type { Db } from './db';
-import { waterRecords, type WaterRecord } from './schema';
-import { createRecordStore, type QueryOptions } from './record-store';
+/** 饮水记录存储模块 - 从 src/store/water.ts 迁移至功能域 */
+import type { Db } from '../../store/db';
+import { waterRecords, type WaterRecord } from '../../store/schema';
+import { createRecordStore, type QueryOptions } from '../../store/record-store';
 
 /**
  * 饮水记录的数据接口

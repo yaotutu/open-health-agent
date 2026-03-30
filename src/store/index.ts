@@ -6,7 +6,7 @@ import { createMessageStore, type MessageStore } from './messages';
 import { createProfileStore, type ProfileStore } from './profile';
 import { createSleepStore, type SleepStore } from './sleep';
 import { createSymptomStore, type SymptomStore } from './symptom';
-import { createWaterStore, type WaterStore } from './water';
+import { createWaterStore, type WaterStore } from '../features/water/store';
 import { createMemoryStore, type MemoryStore } from './memory';
 import { createSummaryStore, type SummaryStore } from './summary';
 import { createLogStore, type LogStore } from './logs';

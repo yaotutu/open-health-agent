@@ -2,6 +2,7 @@ import { Type } from '@sinclair/typebox';
 import type { AgentTool } from '@mariozechner/pi-agent-core';
 import type { Store, UserProfile } from '../store';
 import { createQueryTool } from './tool-factory';
+import { createWaterTools } from '../features/water/tools';
 
 // ==================== 记录工具参数 Schema ====================
 
@@ -63,14 +64,6 @@ const RecordSleepParamsSchema = Type.Object({
   bedTime: Type.Optional(Type.String({ description: '入睡时间，格式 "YYYY-MM-DD HH:mm"，如 "2026-03-28 02:00"' })),
   wakeTime: Type.Optional(Type.String({ description: '醒来时间，格式 "YYYY-MM-DD HH:mm"，如 "2026-03-28 08:00"' })),
   deepSleep: Type.Optional(Type.Number({ description: '深睡时长 分钟' })),
-  note: Type.Optional(Type.String({ description: '备注' })),
-});
-
-/**
- * 记录饮水的参数 Schema
- */
-const RecordWaterParamsSchema = Type.Object({
-  amount: Type.Number({ description: '饮水量 ml' }),
   note: Type.Optional(Type.String({ description: '备注' })),
 });
 
@@ -238,7 +231,6 @@ type RecordDietParams = typeof RecordDietParamsSchema;
 type RecordSymptomParams = typeof RecordSymptomParamsSchema;
 type RecordExerciseParams = typeof RecordExerciseParamsSchema;
 type RecordSleepParams = typeof RecordSleepParamsSchema;
-type RecordWaterParams = typeof RecordWaterParamsSchema;
 type RecordMedicationParams = typeof RecordMedicationParamsSchema;
 type QueryMedicationParams = typeof QueryMedicationParamsSchema;
 type StopMedicationParams = typeof StopMedicationParamsSchema;
@@ -417,27 +409,8 @@ export const createTools = (store: Store, userId: string) => {
     },
   };
 
-  /**
-   * 记录饮水工具
-   * 记录用户的饮水量
-   */
-  const recordWater: AgentTool<RecordWaterParams> = {
-    name: 'record_water',
-    label: '记录饮水',
-    description: '记录用户的饮水量（ml）',
-    parameters: RecordWaterParamsSchema,
-    execute: async (_toolCallId, params, _signal) => {
-      const record = await store.water.record(userId, {
-        amount: params.amount,
-        note: params.note,
-      });
-
-      return {
-        content: [{ type: 'text', text: `已记录饮水: ${record.amount}ml` }],
-        details: { id: record.id, record },
-      };
-    },
-  };
+  // 饮水工具已迁移至 features/water/tools.ts
+  const waterTools = createWaterTools(store.water, userId);
 
   /**
    * 记录用药工具
@@ -794,13 +767,7 @@ export const createTools = (store: Store, userId: string) => {
     queryFn: (options) => store.sleep.query(userId, options),
   });
 
-  /** 查询饮水记录 */
-  const queryWaterRecords = createQueryTool({
-    name: 'query_water_records',
-    label: '查询饮水记录',
-    description: '查询用户的饮水记录，支持按时间范围筛选。',
-    queryFn: (options) => store.water.query(userId, options),
-  });
+  // 查询饮水记录已迁移至 features/water/tools.ts
 
   // ==================== 症状解决工具 ====================
 
@@ -893,7 +860,7 @@ export const createTools = (store: Store, userId: string) => {
     recordSymptom,
     recordExercise,
     recordSleep,
-    recordWater,
+    recordWater: waterTools.recordWater,
     recordMedication,
     queryMedicationRecords,
     stopMedication,
@@ -912,7 +879,7 @@ export const createTools = (store: Store, userId: string) => {
     querySymptomRecords,
     queryExerciseRecords,
     querySleepRecords,
-    queryWaterRecords,
+    queryWaterRecords: waterTools.queryWaterRecords,
     resolveSymptom,
     saveMemory,
     queryMemories,
