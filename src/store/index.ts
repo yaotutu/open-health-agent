@@ -397,17 +397,16 @@ export class Store {
     this.sqlite.run(`CREATE INDEX IF NOT EXISTS idx_logs_level ON logs(level)`);
 
     // 创建心跳任务表
-    // 每个用户可以有多条心跳提示词，定时将这些提示词 + 用户上下文发给 LLM
+    // 每个用户只有一条记录，content 存储所有任务（换行分隔）
     this.sqlite.run(`
       CREATE TABLE IF NOT EXISTS heartbeat_tasks (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id TEXT NOT NULL,
-        content TEXT NOT NULL,
+        user_id TEXT PRIMARY KEY,
+        content TEXT NOT NULL DEFAULT '',
         enabled INTEGER NOT NULL DEFAULT 1,
-        created_at INTEGER NOT NULL
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
       )
     `);
-    this.sqlite.run(`CREATE INDEX IF NOT EXISTS idx_heartbeat_tasks_user_id ON heartbeat_tasks(user_id)`);
   }
 
   /** 关闭数据库连接 */

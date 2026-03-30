@@ -1,7 +1,6 @@
 /**
  * 心跳任务管理的 Agent 工具集
- * 提供 add_heartbeat_task、list_heartbeat_tasks、remove_heartbeat_task 三个工具
- * 允许用户在对话中管理自己的心跳检查任务
+ * 每个用户只有一条心跳记录，通过 add/list/remove 管理其中的任务条目
  */
 import { Type } from '@sinclair/typebox';
 import type { AgentTool } from '@mariozechner/pi-agent-core';
@@ -19,7 +18,7 @@ const ListHeartbeatTasksParamsSchema = Type.Object({});
 
 /** 删除心跳任务的参数 */
 const RemoveHeartbeatTaskParamsSchema = Type.Object({
-  taskId: Type.Number({ description: '要删除的心跳任务 ID' }),
+  lineIndex: Type.Number({ description: '要删除的任务行号（从 1 开始）' }),
 });
 
 // ==================== 工具类型 ====================
@@ -39,25 +38,25 @@ type RemoveHeartbeatTaskParams = typeof RemoveHeartbeatTaskParamsSchema;
 export const createHeartbeatTools = (store: HeartbeatTaskStore, userId: string) => {
   /**
    * 添加心跳任务工具
-   * 用户可以自定义心跳检查项，这些任务会在每次心跳时由 LLM 分析
+   * 往用户的心跳记录中追加一条任务
    */
   const addHeartbeatTask: AgentTool<AddHeartbeatTaskParams> = {
     name: 'add_heartbeat_task',
     label: '添加心跳任务',
-    description: '添加一个心跳检查任务。心跳系统会定期（约15分钟）分析你的健康数据，并根据这些任务描述决定是否需要主动关心你。',
+    description: '添加一个心跳检查任务。心跳系统会定期分析健康数据，根据任务描述决定是否主动关心用户。',
     parameters: AddHeartbeatTaskParamsSchema,
     execute: async (_toolCallId, params, _signal) => {
-      const id = store.add(userId, { content: params.content });
+      store.addTask(userId, params.content);
       return {
-        content: [{ type: 'text', text: `已添加心跳任务（ID: ${id}）: ${params.content}` }],
-        details: { id, content: params.content },
+        content: [{ type: 'text', text: `已添加心跳任务: ${params.content}` }],
+        details: { content: params.content },
       };
     },
   };
 
   /**
    * 查看心跳任务工具
-   * 列出当前用户的所有心跳任务
+   * 列出当前用户心跳中的所有任务
    */
   const listHeartbeatTasks: AgentTool<ListHeartbeatTasksParams> = {
     name: 'list_heartbeat_tasks',
@@ -65,40 +64,40 @@ export const createHeartbeatTools = (store: HeartbeatTaskStore, userId: string) 
     description: '查看当前用户的所有心跳检查任务',
     parameters: ListHeartbeatTasksParamsSchema,
     execute: async (_toolCallId, _params, _signal) => {
-      const tasks = store.listAll(userId);
+      const record = store.get(userId);
 
-      if (tasks.length === 0) {
+      if (!record || !record.content.trim()) {
         return {
           content: [{ type: 'text', text: '当前没有心跳任务' }],
           details: { count: 0 },
         };
       }
 
-      const lines = tasks.map(t =>
-        `- [${t.id}] ${t.enabled ? '✓' : '✗'} ${t.content}`
-      );
+      const lines = record.content.split('\n').map(l => l.trim()).filter(Boolean);
+      const linesText = lines.map((l, i) => `- [${i + 1}] ${l}`).join('\n');
+      const status = record.enabled ? '已启用' : '已禁用';
 
       return {
-        content: [{ type: 'text', text: `当前有 ${tasks.length} 个心跳任务：\n${lines.join('\n')}` }],
-        details: { count: tasks.length, tasks },
+        content: [{ type: 'text', text: `心跳状态: ${status}\n${lines.length} 个任务：\n${linesText}` }],
+        details: { count: lines.length, enabled: record.enabled },
       };
     },
   };
 
   /**
    * 删除心跳任务工具
-   * 删除指定 ID 的心跳任务
+   * 按行号删除指定的任务
    */
   const removeHeartbeatTask: AgentTool<RemoveHeartbeatTaskParams> = {
     name: 'remove_heartbeat_task',
     label: '删除心跳任务',
-    description: '删除一个指定的心跳检查任务',
+    description: '删除指定行号的心跳任务（先用 list_heartbeat_tasks 查看行号）',
     parameters: RemoveHeartbeatTaskParamsSchema,
     execute: async (_toolCallId, params, _signal) => {
-      const removed = store.remove(userId, params.taskId);
+      const removed = store.removeTask(userId, params.lineIndex);
       return {
-        content: [{ type: 'text', text: removed ? `已删除心跳任务 ID: ${params.taskId}` : `未找到心跳任务 ID: ${params.taskId}` }],
-        details: { removed, taskId: params.taskId },
+        content: [{ type: 'text', text: removed ? `已删除第 ${params.lineIndex} 条心跳任务` : `未找到第 ${params.lineIndex} 条任务` }],
+        details: { removed, lineIndex: params.lineIndex },
       };
     },
   };

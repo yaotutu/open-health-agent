@@ -1,2 +1,2 @@
-export { createHeartbeatTaskStore, type HeartbeatTaskStore, type HeartbeatTaskRecord, type NewHeartbeatTask } from './store';
+export { createHeartbeatTaskStore, type HeartbeatTaskStore, type HeartbeatRecord } from './store';
 export { createHeartbeatTools } from './tools';
