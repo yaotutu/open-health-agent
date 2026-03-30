@@ -1,7 +1,8 @@
+/** 用户档案存储模块 - 从 src/store/profile.ts 迁移至功能域 */
 import { eq } from 'drizzle-orm';
-import type { Db } from './db';
-import { userProfiles, type UserProfile, type NewUserProfile } from './schema';
-import { logger } from '../infrastructure/logger';
+import type { Db } from '../../store/db';
+import { userProfiles, type UserProfile, type NewUserProfile } from '../../store/schema';
+import { logger } from '../../infrastructure/logger';
 
 /**
  * 创建用户档案存储模块

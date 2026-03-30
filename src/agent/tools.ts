@@ -1,6 +1,6 @@
 import { Type } from '@sinclair/typebox';
 import type { AgentTool } from '@mariozechner/pi-agent-core';
-import type { Store, UserProfile } from '../store';
+import type { Store } from '../store';
 import { createQueryTool } from './tool-factory';
 import { createWaterTools } from '../features/water/tools';
 import { createBodyTools } from '../features/body/tools';
@@ -12,6 +12,7 @@ import { createDietTools } from '../features/diet/tools';
 import { createMedicationTools } from '../features/medication/tools';
 import { createChronicTools } from '../features/chronic/tools';
 import { createMemoryTools } from '../features/memory/tools';
+import { createProfileTools } from '../features/profile/tools';
 
 // ==================== 记录工具参数 Schema ====================
 
@@ -32,34 +33,12 @@ const QueryHealthPatternsParamsSchema = Type.Object({
 // ==================== 查询工具参数 Schema ====================
 // QueryRecordsParamsSchema 已移至 tool-factory.ts 统一管理
 
-// ==================== 档案工具参数 Schema ====================
-
-/**
- * 获取用户档案的参数 Schema
- */
-const GetProfileParamsSchema = Type.Object({}, { description: '无参数' });
-
-/**
- * 更新用户档案的参数 Schema
- * 所有字段均为可选，只传入需要更新的字段
- * 注意：体重不再存储在档案中，使用 record_body 工具记录
- */
-const UpdateProfileParamsSchema = Type.Object({
-  height: Type.Optional(Type.Number({ description: '身高 cm' })),
-  age: Type.Optional(Type.Number({ description: '年龄' })),
-  gender: Type.Optional(Type.String({ description: '性别' })),
-  diseases: Type.Optional(Type.Array(Type.String(), { description: '疾病史' })),
-  allergies: Type.Optional(Type.Array(Type.String(), { description: '过敏史' })),
-  dietPreferences: Type.Optional(Type.String({ description: '饮食偏好' })),
-  healthGoal: Type.Optional(Type.String({ description: '健康目标' })),
-});
+// 档案工具已迁移至 features/profile/tools.ts
 
 // ==================== 工具类型定义 ====================
 
 type QueryFoodSymptomCorrelationParams = typeof QueryFoodSymptomCorrelationParamsSchema;
 type QueryHealthPatternsParams = typeof QueryHealthPatternsParamsSchema;
-type GetProfileParams = typeof GetProfileParamsSchema;
-type UpdateProfileParams = typeof UpdateProfileParamsSchema;
 
 // ==================== 工具创建函数 ====================
 
@@ -142,70 +121,8 @@ export const createTools = (store: Store, userId: string) => {
   // 健康观察工具已迁移至 features/observation/tools.ts
   const observationTools = createObservationTools(store.observation, userId);
 
-  /**
-   * 获取用户档案工具
-   * 查询用户的个人健康档案，包括身高、年龄、疾病史、过敏史等信息
-   * 注意：体重不再包含在档案中，应使用记录查询获取最新体重
-   */
-  const getProfile: AgentTool<GetProfileParams> = {
-    name: 'get_profile',
-    label: '获取用户档案',
-    description: '获取用户的个人健康档案，包括身高、年龄、疾病史、过敏史、饮食偏好等。注意：体重不再存储在档案中。',
-    parameters: GetProfileParamsSchema,
-    execute: async (_toolCallId, _params, _signal) => {
-      const profile = await store.profile.get(userId);
-
-      if (!profile) {
-        return {
-          content: [{ type: 'text', text: '用户尚未建立个人档案' }],
-          details: { exists: false },
-        };
-      }
-
-      // 解析 JSON 数组字段
-      const parsed = {
-        ...profile,
-        diseases: profile.diseases ? JSON.parse(profile.diseases) as string[] : [],
-        allergies: profile.allergies ? JSON.parse(profile.allergies) as string[] : [],
-      };
-
-      return {
-        content: [{ type: 'text', text: `用户档案: ${JSON.stringify(parsed, null, 2)}` }],
-        details: { exists: true, profile: parsed },
-      };
-    },
-  };
-
-  /**
-   * 更新用户档案工具
-   * 创建或更新用户的个人健康档案，只传入需要更新的字段
-   * 注意：体重不再存储在档案中，使用 record_body 工具记录
-   */
-  const updateProfile: AgentTool<UpdateProfileParams> = {
-    name: 'update_profile',
-    label: '更新用户档案',
-    description: '更新用户的个人健康档案。注意：体重不再存储在档案中，请使用 record_body 工具记录体重。',
-    parameters: UpdateProfileParamsSchema,
-    execute: async (_toolCallId, params, _signal) => {
-      const data: Partial<Omit<UserProfile, 'userId' | 'createdAt' | 'updatedAt'>> = {};
-
-      if (params.height !== undefined) data.height = params.height;
-      if (params.age !== undefined) data.age = params.age;
-      if (params.gender !== undefined) data.gender = params.gender;
-      // 疾病史和过敏史是字符串数组，需要序列化为 JSON 字符串
-      if (params.diseases !== undefined) data.diseases = JSON.stringify(params.diseases);
-      if (params.allergies !== undefined) data.allergies = JSON.stringify(params.allergies);
-      if (params.dietPreferences !== undefined) data.dietPreferences = params.dietPreferences;
-      if (params.healthGoal !== undefined) data.healthGoal = params.healthGoal;
-
-      const profile = await store.profile.upsert(userId, data);
-
-      return {
-        content: [{ type: 'text', text: '用户档案已更新' }],
-        details: { profile },
-      };
-    },
-  };
+  // 档案工具已迁移至 features/profile/tools.ts
+  const profileTools = createProfileTools(store.profile, userId);
 
   // ==================== 查询工具 ====================
   // 6 个标准查询工具使用 createQueryTool 工厂函数生成，消除重复代码
@@ -235,8 +152,8 @@ export const createTools = (store: Store, userId: string) => {
     queryHealthPatterns,
     recordObservation: observationTools.recordObservation,
     queryObservations: observationTools.queryObservations,
-    getProfile,
-    updateProfile,
+    getProfile: profileTools.getProfile,
+    updateProfile: profileTools.updateProfile,
     queryBodyRecords: bodyTools.queryBodyRecords,
     queryDietRecords: dietTools.queryDietRecords,
     querySymptomRecords: symptomTools.querySymptomRecords,
