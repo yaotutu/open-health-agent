@@ -5,6 +5,7 @@ import { createQueryTool } from './tool-factory';
 import { createWaterTools } from '../features/water/tools';
 import { createBodyTools } from '../features/body/tools';
 import { createSleepTools } from '../features/sleep/tools';
+import { createExerciseTools } from '../features/exercise/tools';
 
 // ==================== 记录工具参数 Schema ====================
 
@@ -31,19 +32,6 @@ const RecordSymptomParamsSchema = Type.Object({
   bodyPart: Type.Optional(Type.String({ description: '身体部位，如"胃部"、"头部"、"胸部"等' })),
   relatedType: Type.Optional(Type.String({ description: '关联记录类型，如diet、exercise等（可选）' })),
   relatedId: Type.Optional(Type.Number({ description: '关联记录ID（可选）' })),
-  note: Type.Optional(Type.String({ description: '备注' })),
-});
-
-/**
- * 记录运动的参数 Schema
- */
-const RecordExerciseParamsSchema = Type.Object({
-  type: Type.String({ description: '运动类型，如跑步、游泳、瑜伽等' }),
-  duration: Type.Number({ description: '运动时长 分钟' }),
-  calories: Type.Optional(Type.Number({ description: '消耗热量 kcal' })),
-  heartRateAvg: Type.Optional(Type.Number({ description: '平均心率 bpm' })),
-  heartRateMax: Type.Optional(Type.Number({ description: '最大心率 bpm' })),
-  distance: Type.Optional(Type.Number({ description: '距离 km' })),
   note: Type.Optional(Type.String({ description: '备注' })),
 });
 
@@ -208,7 +196,6 @@ const UpdateProfileParamsSchema = Type.Object({
 
 type RecordDietParams = typeof RecordDietParamsSchema;
 type RecordSymptomParams = typeof RecordSymptomParamsSchema;
-type RecordExerciseParams = typeof RecordExerciseParamsSchema;
 type RecordMedicationParams = typeof RecordMedicationParamsSchema;
 type QueryMedicationParams = typeof QueryMedicationParamsSchema;
 type StopMedicationParams = typeof StopMedicationParamsSchema;
@@ -296,32 +283,8 @@ export const createTools = (store: Store, userId: string) => {
     },
   };
 
-  /**
-   * 记录运动工具
-   * 记录用户的运动活动和相关数据
-   */
-  const recordExercise: AgentTool<RecordExerciseParams> = {
-    name: 'record_exercise',
-    label: '记录运动',
-    description: '记录用户的运动活动，包括类型、时长、消耗热量、心率等',
-    parameters: RecordExerciseParamsSchema,
-    execute: async (_toolCallId, params, _signal) => {
-      const record = await store.exercise.record(userId, {
-        type: params.type,
-        duration: params.duration,
-        calories: params.calories,
-        heartRateAvg: params.heartRateAvg,
-        heartRateMax: params.heartRateMax,
-        distance: params.distance,
-        note: params.note,
-      });
-
-      return {
-        content: [{ type: 'text', text: `已记录运动: ${record.type} ${record.duration}分钟${record.calories ? `, 消耗 ${record.calories}kcal` : ''}` }],
-        details: { id: record.id, record },
-      };
-    },
-  };
+  // 运动工具已迁移至 features/exercise/tools.ts
+  const exerciseTools = createExerciseTools(store.exercise, userId);
 
   // 睡眠工具已迁移至 features/sleep/tools.ts
   const sleepTools = createSleepTools(store.sleep, userId);
@@ -660,13 +623,7 @@ export const createTools = (store: Store, userId: string) => {
     queryFn: (options) => store.symptom.query(userId, options),
   });
 
-  /** 查询运动记录 */
-  const queryExerciseRecords = createQueryTool({
-    name: 'query_exercise_records',
-    label: '查询运动记录',
-    description: '查询用户的运动记录，支持按时间范围筛选。',
-    queryFn: (options) => store.exercise.query(userId, options),
-  });
+  // 查询运动记录已迁移至 features/exercise/tools.ts
 
   // 查询睡眠记录已迁移至 features/sleep/tools.ts
 
@@ -761,7 +718,7 @@ export const createTools = (store: Store, userId: string) => {
     recordBody: bodyTools.recordBody,
     recordDiet,
     recordSymptom,
-    recordExercise,
+    recordExercise: exerciseTools.recordExercise,
     recordSleep: sleepTools.recordSleep,
     recordWater: waterTools.recordWater,
     recordMedication,
@@ -780,7 +737,7 @@ export const createTools = (store: Store, userId: string) => {
     queryBodyRecords: bodyTools.queryBodyRecords,
     queryDietRecords,
     querySymptomRecords,
-    queryExerciseRecords,
+    queryExerciseRecords: exerciseTools.queryExerciseRecords,
     querySleepRecords: sleepTools.querySleepRecords,
     queryWaterRecords: waterTools.queryWaterRecords,
     resolveSymptom,

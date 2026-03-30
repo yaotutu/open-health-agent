@@ -1,6 +1,7 @@
-import type { Db } from './db';
-import { exerciseRecords, type ExerciseRecord } from './schema';
-import { createRecordStore, type QueryOptions } from './record-store';
+/** 运动记录存储模块 - 从 src/store/exercise.ts 迁移至功能域 */
+import type { Db } from '../../store/db';
+import { exerciseRecords, type ExerciseRecord } from '../../store/schema';
+import { createRecordStore, type QueryOptions } from '../../store/record-store';
 
 /**
  * 运动记录的数据接口
