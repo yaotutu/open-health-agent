@@ -2,6 +2,7 @@ import { readFileSync, readdirSync } from 'fs';
 import { join, dirname } from 'path';
 import type { Store } from '../store';
 import type { UserProfile, MemoryRecord, ConversationSummary, ChronicCondition } from '../store/schema';
+import { safeJsonParse } from '../store/json-utils';
 
 /**
  * prompts 目录的根路径
@@ -70,8 +71,8 @@ function formatProfile(profile: UserProfile | undefined): string {
   // 解析 JSON 数组字段，将字符串形式的 JSON 数组转为实际数组以便可读展示
   const parsed = {
     ...profile,
-    diseases: profile.diseases ? JSON.parse(profile.diseases) : [],
-    allergies: profile.allergies ? JSON.parse(profile.allergies) : [],
+    diseases: safeJsonParse(profile.diseases, []),
+    allergies: safeJsonParse(profile.allergies, []),
   };
   return `## 当前用户档案\n${JSON.stringify(parsed, null, 2)}`;
 }
@@ -163,7 +164,7 @@ async function formatRecentRecords(store: Store, userId: string): Promise<string
   // 格式化最近的健康观察
   if (observations.length > 0) {
     sections.push('### 健康观察\n' + observations.map(r => {
-      const tags = r.tags ? JSON.parse(r.tags) as string[] : [];
+      const tags = safeJsonParse<string[]>(r.tags, []);
       return `- ${formatDate(r.timestamp)}: ${r.content}${tags.length > 0 ? ' [' + tags.join(', ') + ']' : ''}`;
     }).join('\n'));
   }
@@ -205,7 +206,7 @@ function formatChronicConditions(conditions: ChronicCondition[]): string {
   if (!conditions || conditions.length === 0) return '';
   return '## 慢性病追踪\n以下是用户正在追踪的慢性病，记录症状时请关注是否关联：\n' +
     conditions.map(c => {
-      const triggers = c.triggers ? JSON.parse(c.triggers) as string[] : [];
+      const triggers = safeJsonParse<string[]>(c.triggers, []);
       return `- ${c.condition}${c.severity ? ' (' + c.severity + ')' : ''}${c.seasonalPattern ? ' - ' + c.seasonalPattern : ''}${triggers.length > 0 ? ' - 触发因素: ' + triggers.join('、') : ''}`;
     }).join('\n');
 }
