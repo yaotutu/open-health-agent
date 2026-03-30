@@ -1,6 +1,6 @@
 import { createDb, type Db } from './db';
 import { createBodyStore, type BodyStore } from '../features/body/store';
-import { createDietStore, type DietStore } from './diet';
+import { createDietStore, type DietStore } from '../features/diet/store';
 import { createExerciseStore, type ExerciseStore } from '../features/exercise/store';
 import { createMessageStore, type MessageStore } from './messages';
 import { createProfileStore, type ProfileStore } from './profile';

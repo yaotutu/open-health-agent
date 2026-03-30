@@ -7,22 +7,9 @@ import { createBodyTools } from '../features/body/tools';
 import { createSleepTools } from '../features/sleep/tools';
 import { createExerciseTools } from '../features/exercise/tools';
 import { createObservationTools } from '../features/observation/tools';
+import { createDietTools } from '../features/diet/tools';
 
 // ==================== 记录工具参数 Schema ====================
-
-/**
- * 记录饮食的参数 Schema
- */
-const RecordDietParamsSchema = Type.Object({
-  food: Type.String({ description: '食物名称' }),
-  calories: Type.Number({ description: '热量 kcal' }),
-  protein: Type.Optional(Type.Number({ description: '蛋白质 g' })),
-  carbs: Type.Optional(Type.Number({ description: '碳水化合物 g' })),
-  fat: Type.Optional(Type.Number({ description: '脂肪 g' })),
-  sodium: Type.Optional(Type.Number({ description: '钠 mg' })),
-  mealType: Type.Optional(Type.String({ description: '餐次，如早餐、午餐、晚餐、加餐' })),
-  note: Type.Optional(Type.String({ description: '备注' })),
-});
 
 /**
  * 记录症状的参数 Schema
@@ -178,7 +165,6 @@ const UpdateProfileParamsSchema = Type.Object({
 
 // ==================== 工具类型定义 ====================
 
-type RecordDietParams = typeof RecordDietParamsSchema;
 type RecordSymptomParams = typeof RecordSymptomParamsSchema;
 type RecordMedicationParams = typeof RecordMedicationParamsSchema;
 type QueryMedicationParams = typeof QueryMedicationParamsSchema;
@@ -210,33 +196,8 @@ export const createTools = (store: Store, userId: string) => {
   // 身体数据工具已迁移至 features/body/tools.ts
   const bodyTools = createBodyTools(store.body, userId);
 
-  /**
-   * 记录饮食工具
-   * 记录用户的食物摄入和营养信息
-   */
-  const recordDiet: AgentTool<RecordDietParams> = {
-    name: 'record_diet',
-    label: '记录饮食',
-    description: '记录用户的饮食摄入，包括食物名称、热量和营养成分（蛋白质、碳水、脂肪、钠）',
-    parameters: RecordDietParamsSchema,
-    execute: async (_toolCallId, params, _signal) => {
-      const record = await store.diet.record(userId, {
-        food: params.food,
-        calories: params.calories,
-        protein: params.protein,
-        carbs: params.carbs,
-        fat: params.fat,
-        sodium: params.sodium,
-        mealType: params.mealType,
-        note: params.note,
-      });
-
-      return {
-        content: [{ type: 'text', text: `已记录饮食: ${record.food} ${record.calories}kcal${record.mealType ? ` (${record.mealType})` : ''}` }],
-        details: { id: record.id, record },
-      };
-    },
-  };
+  // 饮食工具已迁移至 features/diet/tools.ts
+  const dietTools = createDietTools(store.diet, userId);
 
   /**
    * 记录症状工具
@@ -545,14 +506,6 @@ export const createTools = (store: Store, userId: string) => {
   // 6 个标准查询工具使用 createQueryTool 工厂函数生成，消除重复代码
   // 每个 queryFn 通过箭头函数绑定 userId，只需传入 options
 
-  /** 查询饮食记录 */
-  const queryDietRecords = createQueryTool({
-    name: 'query_diet_records',
-    label: '查询饮食记录',
-    description: '查询用户的饮食记录，支持按时间范围筛选。',
-    queryFn: (options) => store.diet.query(userId, options),
-  });
-
   /** 查询症状记录 */
   const querySymptomRecords = createQueryTool({
     name: 'query_symptom_records',
@@ -654,7 +607,7 @@ export const createTools = (store: Store, userId: string) => {
 
   return {
     recordBody: bodyTools.recordBody,
-    recordDiet,
+    recordDiet: dietTools.recordDiet,
     recordSymptom,
     recordExercise: exerciseTools.recordExercise,
     recordSleep: sleepTools.recordSleep,
@@ -673,7 +626,7 @@ export const createTools = (store: Store, userId: string) => {
     getProfile,
     updateProfile,
     queryBodyRecords: bodyTools.queryBodyRecords,
-    queryDietRecords,
+    queryDietRecords: dietTools.queryDietRecords,
     querySymptomRecords,
     queryExerciseRecords: exerciseTools.queryExerciseRecords,
     querySleepRecords: sleepTools.querySleepRecords,

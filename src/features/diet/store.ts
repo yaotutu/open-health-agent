@@ -1,6 +1,7 @@
-import type { Db } from './db';
-import { dietRecords, type DietRecord } from './schema';
-import { createRecordStore, type QueryOptions } from './record-store';
+/** 饮食记录存储模块 - 从 src/store/diet.ts 迁移至功能域 */
+import type { Db } from '../../store/db';
+import { dietRecords, type DietRecord } from '../../store/schema';
+import { createRecordStore, type QueryOptions } from '../../store/record-store';
 
 /**
  * 饮食记录的数据接口
