@@ -12,11 +12,13 @@
     "declaration": true,
     "types": ["node", "bun-types"],
     "paths": {
-      "@domain/*": ["./src/domain/*"],
-      "@infrastructure/*": ["./src/infrastructure/*"],
-      "@application/*": ["./src/application/*"],
+      "@features/*": ["./src/features/*"],
+      "@store/*": ["./src/store/*"],
+      "@agent/*": ["./src/agent/*"],
+      "@prompts/*": ["./src/prompts/*"],
       "@channels/*": ["./src/channels/*"],
-      "@config": ["./src/config/index.ts"]
+      "@session/*": ["./src/session/*"],
+      "@config": ["./src/config.ts"]
     }
   },
   "include": ["src/**/*"],
