@@ -6,6 +6,7 @@ import { createWaterTools } from '../features/water/tools';
 import { createBodyTools } from '../features/body/tools';
 import { createSleepTools } from '../features/sleep/tools';
 import { createExerciseTools } from '../features/exercise/tools';
+import { createObservationTools } from '../features/observation/tools';
 
 // ==================== 记录工具参数 Schema ====================
 
@@ -112,23 +113,6 @@ const QueryHealthPatternsParamsSchema = Type.Object({
   days: Type.Optional(Type.Number({ description: '分析最近多少天的数据，默认30天' })),
 });
 
-/**
- * 记录健康观察的参数 Schema
- */
-const RecordObservationParamsSchema = Type.Object({
-  content: Type.String({ description: '观察内容，如"最近睡眠不好"、"感觉压力大"' }),
-  tags: Type.Optional(Type.Array(Type.String(), { description: '标签列表，如 ["睡眠","疲劳"]' })),
-});
-
-/**
- * 查询健康观察的参数 Schema
- */
-const QueryObservationsParamsSchema = Type.Object({
-  startTime: Type.Optional(Type.Number({ description: '起始时间戳（毫秒）' })),
-  endTime: Type.Optional(Type.Number({ description: '结束时间戳（毫秒）' })),
-  limit: Type.Optional(Type.Number({ description: '返回数量限制，默认10' })),
-});
-
 // ==================== 查询工具参数 Schema ====================
 // QueryRecordsParamsSchema 已移至 tool-factory.ts 统一管理
 
@@ -205,8 +189,6 @@ type QueryChronicConditionsParams = typeof QueryChronicConditionsParamsSchema;
 type DeactivateChronicConditionParams = typeof DeactivateChronicConditionParamsSchema;
 type QueryFoodSymptomCorrelationParams = typeof QueryFoodSymptomCorrelationParamsSchema;
 type QueryHealthPatternsParams = typeof QueryHealthPatternsParamsSchema;
-type RecordObservationParams = typeof RecordObservationParamsSchema;
-type QueryObservationsParams = typeof QueryObservationsParamsSchema;
 type ResolveSymptomParams = typeof ResolveSymptomParamsSchema;
 type SaveMemoryParams = typeof SaveMemoryParamsSchema;
 type QueryMemoriesParams = typeof QueryMemoriesParamsSchema;
@@ -491,52 +473,8 @@ export const createTools = (store: Store, userId: string) => {
    * 记录健康观察工具
    * 记录用户的非结构化健康观察，如"最近睡眠不好"、"感觉压力大"等
    */
-  const recordObservation: AgentTool<RecordObservationParams> = {
-    name: 'record_observation',
-    label: '记录健康观察',
-    description: '记录用户的健康观察或感受，如"最近睡眠不好"、"感觉压力大"等模糊描述。',
-    parameters: RecordObservationParamsSchema,
-    execute: async (_toolCallId, params, _signal) => {
-      const record = await store.observation.record(userId, {
-        content: params.content,
-        tags: params.tags,
-      });
-
-      return {
-        content: [{ type: 'text', text: `已记录观察: ${record.content}` }],
-        details: { id: record.id, record },
-      };
-    },
-  };
-
-  /**
-   * 查询健康观察工具
-   * 查询用户的健康观察记录
-   */
-  const queryObservations: AgentTool<QueryObservationsParams> = {
-    name: 'query_observations',
-    label: '查询健康观察',
-    description: '查询用户的健康观察记录，支持按时间范围筛选。',
-    parameters: QueryObservationsParamsSchema,
-    execute: async (_toolCallId, params, _signal) => {
-      const records = await store.observation.query(userId, {
-        startDate: params.startTime,
-        endDate: params.endTime,
-        limit: params.limit,
-      });
-
-      // 解析 tags JSON 字段
-      const parsed = records.map(r => ({
-        ...r,
-        tags: r.tags ? JSON.parse(r.tags) : [],
-      }));
-
-      return {
-        content: [{ type: 'text', text: JSON.stringify({ records: parsed, count: parsed.length }) }],
-        details: { records: parsed, count: parsed.length },
-      };
-    },
-  };
+  // 健康观察工具已迁移至 features/observation/tools.ts
+  const observationTools = createObservationTools(store.observation, userId);
 
   /**
    * 获取用户档案工具
@@ -730,8 +668,8 @@ export const createTools = (store: Store, userId: string) => {
     deactivateChronicCondition,
     queryFoodSymptomCorrelation,
     queryHealthPatterns,
-    recordObservation,
-    queryObservations,
+    recordObservation: observationTools.recordObservation,
+    queryObservations: observationTools.queryObservations,
     getProfile,
     updateProfile,
     queryBodyRecords: bodyTools.queryBodyRecords,

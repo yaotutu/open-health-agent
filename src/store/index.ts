@@ -13,7 +13,7 @@ import { createLogStore, type LogStore } from './logs';
 import { createMedicationStore, type MedicationStore } from './medication';
 import { createChronicStore, type ChronicStore } from './chronic';
 import { createAnalysisStore, type AnalysisStore } from './analysis';
-import { createObservationStore, type ObservationStore } from './observation';
+import { createObservationStore, type ObservationStore } from '../features/observation/store';
 import {
   userProfiles,
   bodyRecords,
