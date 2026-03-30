@@ -1,5 +1,5 @@
 import { createDb, type Db } from './db';
-import { createBodyStore, type BodyStore } from './body';
+import { createBodyStore, type BodyStore } from '../features/body/store';
 import { createDietStore, type DietStore } from './diet';
 import { createExerciseStore, type ExerciseStore } from './exercise';
 import { createMessageStore, type MessageStore } from './messages';

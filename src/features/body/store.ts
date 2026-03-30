@@ -1,6 +1,7 @@
-import type { Db } from './db';
-import { bodyRecords, type BodyRecord, type NewBodyRecord } from './schema';
-import { createRecordStore, type QueryOptions } from './record-store';
+/** 身体数据记录存储模块 - 从 src/store/body.ts 迁移至功能域 */
+import type { Db } from '../../store/db';
+import { bodyRecords, type BodyRecord } from '../../store/schema';
+import { createRecordStore, type QueryOptions } from '../../store/record-store';
 
 /**
  * 身体数据记录的数据接口

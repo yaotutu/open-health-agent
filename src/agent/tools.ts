@@ -3,18 +3,9 @@ import type { AgentTool } from '@mariozechner/pi-agent-core';
 import type { Store, UserProfile } from '../store';
 import { createQueryTool } from './tool-factory';
 import { createWaterTools } from '../features/water/tools';
+import { createBodyTools } from '../features/body/tools';
 
 // ==================== 记录工具参数 Schema ====================
-
-/**
- * 记录身体数据的参数 Schema
- */
-const RecordBodyParamsSchema = Type.Object({
-  weight: Type.Number({ description: '体重 kg' }),
-  bodyFat: Type.Optional(Type.Number({ description: '体脂率 %' })),
-  bmi: Type.Optional(Type.Number({ description: 'BMI 指数' })),
-  note: Type.Optional(Type.String({ description: '备注' })),
-});
 
 /**
  * 记录饮食的参数 Schema
@@ -226,7 +217,6 @@ const UpdateProfileParamsSchema = Type.Object({
 
 // ==================== 工具类型定义 ====================
 
-type RecordBodyParams = typeof RecordBodyParamsSchema;
 type RecordDietParams = typeof RecordDietParamsSchema;
 type RecordSymptomParams = typeof RecordSymptomParamsSchema;
 type RecordExerciseParams = typeof RecordExerciseParamsSchema;
@@ -260,29 +250,8 @@ type UpdateProfileParams = typeof UpdateProfileParamsSchema;
  * @returns 包含所有 Agent 工具的对象
  */
 export const createTools = (store: Store, userId: string) => {
-  /**
-   * 记录身体数据工具
-   * 记录用户的体重、体脂率、BMI 等身体指标
-   */
-  const recordBody: AgentTool<RecordBodyParams> = {
-    name: 'record_body',
-    label: '记录身体数据',
-    description: '记录用户的身体数据，如体重、体脂率、BMI。体重应使用此工具记录，不再存储在档案中。',
-    parameters: RecordBodyParamsSchema,
-    execute: async (_toolCallId, params, _signal) => {
-      const record = await store.body.record(userId, {
-        weight: params.weight,
-        bodyFat: params.bodyFat,
-        bmi: params.bmi,
-        note: params.note,
-      });
-
-      return {
-        content: [{ type: 'text', text: `已记录身体数据: 体重 ${record.weight}kg${record.bodyFat ? `, 体脂 ${record.bodyFat}%` : ''} (${new Date(record.timestamp).toISOString()})` }],
-        details: { id: record.id, record },
-      };
-    },
-  };
+  // 身体数据工具已迁移至 features/body/tools.ts
+  const bodyTools = createBodyTools(store.body, userId);
 
   /**
    * 记录饮食工具
@@ -727,14 +696,6 @@ export const createTools = (store: Store, userId: string) => {
   // 6 个标准查询工具使用 createQueryTool 工厂函数生成，消除重复代码
   // 每个 queryFn 通过箭头函数绑定 userId，只需传入 options
 
-  /** 查询身体数据记录（体重、体脂率、BMI） */
-  const queryBodyRecords = createQueryTool({
-    name: 'query_body_records',
-    label: '查询身体数据',
-    description: '查询用户的身体数据记录（体重、体脂率、BMI等），支持按时间范围筛选。',
-    queryFn: (options) => store.body.query(userId, options),
-  });
-
   /** 查询饮食记录 */
   const queryDietRecords = createQueryTool({
     name: 'query_diet_records',
@@ -855,7 +816,7 @@ export const createTools = (store: Store, userId: string) => {
   };
 
   return {
-    recordBody,
+    recordBody: bodyTools.recordBody,
     recordDiet,
     recordSymptom,
     recordExercise,
@@ -874,7 +835,7 @@ export const createTools = (store: Store, userId: string) => {
     queryObservations,
     getProfile,
     updateProfile,
-    queryBodyRecords,
+    queryBodyRecords: bodyTools.queryBodyRecords,
     queryDietRecords,
     querySymptomRecords,
     queryExerciseRecords,
