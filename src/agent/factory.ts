@@ -145,9 +145,6 @@ export const createHealthAgent = async (options: CreateAgentOptions) => {
     tools.updateChronicCondition,
     tools.queryChronicConditions,
     tools.deactivateChronicCondition,
-    // 分析工具：食物-症状关联分析、健康模式分析
-    tools.queryFoodSymptomCorrelation,
-    tools.queryHealthPatterns,
     // 健康观察工具：记录和查询非结构化健康观察
     tools.recordObservation,
     tools.queryObservations,

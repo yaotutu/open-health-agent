@@ -1,7 +1,4 @@
-import { Type } from '@sinclair/typebox';
-import type { AgentTool } from '@mariozechner/pi-agent-core';
 import type { Store } from '../store';
-import { createQueryTool } from './tool-factory';
 import { createWaterTools } from '../features/water/tools';
 import { createBodyTools } from '../features/body/tools';
 import { createSleepTools } from '../features/sleep/tools';
@@ -15,30 +12,6 @@ import { createMemoryTools } from '../features/memory/tools';
 import { createProfileTools } from '../features/profile/tools';
 
 // ==================== 记录工具参数 Schema ====================
-
-/**
- * 查询食物-症状关联分析的参数 Schema
- */
-const QueryFoodSymptomCorrelationParamsSchema = Type.Object({
-  days: Type.Optional(Type.Number({ description: '分析最近多少天的数据，默认30天' })),
-});
-
-/**
- * 查询健康模式分析的参数 Schema
- */
-const QueryHealthPatternsParamsSchema = Type.Object({
-  days: Type.Optional(Type.Number({ description: '分析最近多少天的数据，默认30天' })),
-});
-
-// ==================== 查询工具参数 Schema ====================
-// QueryRecordsParamsSchema 已移至 tool-factory.ts 统一管理
-
-// 档案工具已迁移至 features/profile/tools.ts
-
-// ==================== 工具类型定义 ====================
-
-type QueryFoodSymptomCorrelationParams = typeof QueryFoodSymptomCorrelationParamsSchema;
-type QueryHealthPatternsParams = typeof QueryHealthPatternsParamsSchema;
 
 // ==================== 工具创建函数 ====================
 
@@ -79,42 +52,6 @@ export const createTools = (store: Store, userId: string) => {
   const memoryTools = createMemoryTools(store.memory, userId);
 
   /**
-   * 查询食物-症状关联分析工具
-   * 分析用户最近N天的饮食和症状记录，计算每种食物与症状的关联概率
-   */
-  const queryFoodSymptomCorrelation: AgentTool<QueryFoodSymptomCorrelationParams> = {
-    name: 'query_food_symptom_correlation',
-    label: '食物-症状关联分析',
-    description: '分析用户最近N天的饮食和症状记录，计算每种食物与症状出现的关联概率，识别高风险和中风险食物。',
-    parameters: QueryFoodSymptomCorrelationParamsSchema,
-    execute: async (_toolCallId, params, _signal) => {
-      const result = await store.analysis.analyzeFoodSymptomCorrelation(userId, params.days ?? 30);
-      return {
-        content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
-        details: result,
-      };
-    },
-  };
-
-  /**
-   * 查询健康模式分析工具
-   * 统计症状频率，分析症状与睡眠、运动的关联
-   */
-  const queryHealthPatterns: AgentTool<QueryHealthPatternsParams> = {
-    name: 'query_health_patterns',
-    label: '健康模式分析',
-    description: '分析用户最近N天的健康数据，统计症状频率，发现症状与睡眠不足、运动的关联模式。',
-    parameters: QueryHealthPatternsParamsSchema,
-    execute: async (_toolCallId, params, _signal) => {
-      const result = await store.analysis.analyzeHealthPatterns(userId, params.days ?? 30);
-      return {
-        content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
-        details: result,
-      };
-    },
-  };
-
-  /**
    * 记录健康观察工具
    * 记录用户的非结构化健康观察，如"最近睡眠不好"、"感觉压力大"等
    */
@@ -148,8 +85,6 @@ export const createTools = (store: Store, userId: string) => {
     updateChronicCondition: chronicTools.updateChronicCondition,
     queryChronicConditions: chronicTools.queryChronicConditions,
     deactivateChronicCondition: chronicTools.deactivateChronicCondition,
-    queryFoodSymptomCorrelation,
-    queryHealthPatterns,
     recordObservation: observationTools.recordObservation,
     queryObservations: observationTools.queryObservations,
     getProfile: profileTools.getProfile,

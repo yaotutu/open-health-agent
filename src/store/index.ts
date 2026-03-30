@@ -12,7 +12,6 @@ import { createSummaryStore, type SummaryStore } from './summary';
 import { createLogStore, type LogStore } from './logs';
 import { createMedicationStore, type MedicationStore } from '../features/medication/store';
 import { createChronicStore, type ChronicStore } from '../features/chronic/store';
-import { createAnalysisStore, type AnalysisStore } from './analysis';
 import { createObservationStore, type ObservationStore } from '../features/observation/store';
 import {
   userProfiles,
@@ -54,7 +53,6 @@ export {
   createLogStore,
   createMedicationStore,
   createChronicStore,
-  createAnalysisStore,
   createObservationStore,
 };
 
@@ -91,7 +89,6 @@ export type {
   LogStore,
   MedicationStore,
   ChronicStore,
-  AnalysisStore,
   ObservationStore,
   Message,
   UserProfile,
@@ -131,9 +128,6 @@ export class Store {
   // 慢性病记录存储
   readonly chronic: ChronicStore;
 
-  // 分析模块（依赖其他存储模块）
-  readonly analysis: AnalysisStore;
-
   // 健康观察记录存储
   readonly observation: ObservationStore;
 
@@ -164,9 +158,6 @@ export class Store {
 
     // 慢性病记录存储
     this.chronic = createChronicStore(this.db);
-
-    // 分析模块（在所有模块初始化后创建，因为依赖其他存储模块）
-    this.analysis = createAnalysisStore(this);
 
     // 健康观察记录存储
     this.observation = createObservationStore(this.db);
