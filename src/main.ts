@@ -2,6 +2,7 @@ import 'dotenv/config';
 import http from 'http';
 import { getModel, streamSimple } from '@mariozechner/pi-ai';
 import type { Context } from '@mariozechner/pi-ai';
+import { config } from './config';
 import { Store } from './store';
 import type { Message } from './store';
 import { createHealthAgent } from './agent';
@@ -10,12 +11,6 @@ import { createMessageHandler, createWebSocketChannel, createQQChannel } from '.
 import type { ChannelAdapter } from './channels';
 import { startHeartbeatScheduler } from './heartbeat';
 import { logger, dbLogWriter } from './infrastructure/logger';
-
-const PORT = parseInt(process.env.PORT || '3001', 10);
-const DB_PATH = process.env.DB_PATH || './data/healthclaw.db';
-const SHUTDOWN_TIMEOUT = 10000;
-/** 测试模式：不加载历史消息，不生成对话摘要 */
-const TEST_MODE = process.env.TEST_MODE === '1';
 
 /**
  * 使用 LLM 生成对话摘要
@@ -32,10 +27,10 @@ async function generateConversationSummary(messages: Message[]): Promise<string>
     .map(m => `${m.role === 'user' ? '用户' : '助手'}: ${m.content}`)
     .join('\n');
 
-  // 获取 LLM 模型实例
+  // 获取 LLM 模型实例，使用集中配置中的 provider 和 model
   const model = getModel(
-    (process.env.LLM_PROVIDER || 'anthropic') as any,
-    (process.env.LLM_MODEL || 'claude-sonnet-4-6') as any
+    config.llm.provider as any,
+    config.llm.model as any
   );
 
   // 构建 LLM 请求上下文，包含系统提示和对话内容
@@ -64,13 +59,13 @@ async function generateConversationSummary(messages: Message[]): Promise<string>
 
 async function main() {
   logger.info('[app] starting health advisor agent...');
-  if (TEST_MODE) logger.info('[app] TEST_MODE enabled: no history, no summaries');
+  if (config.testMode) logger.info('[app] TEST_MODE enabled: no history, no summaries');
 
   // 1. 初始化存储
-  const store = new Store(DB_PATH);
+  const store = new Store(config.dbPath);
   // 将日志存储注入 logger，之后所有日志将写入数据库
   dbLogWriter.init(store.logs);
-  logger.info('[app] database initialized path=%s', DB_PATH);
+  logger.info('[app] database initialized path=%s', config.dbPath);
 
   // 2. 创建 Agent 工厂（异步函数，因为需要查询用户档案）
   const createAgent = async (userId: string, messages: Parameters<typeof createHealthAgent>[0]['messages']) =>
@@ -80,9 +75,9 @@ async function main() {
   const sessions = createSessionManager({
     createAgent,
     store,
-    noHistory: TEST_MODE,
+    noHistory: config.testMode,
     /** 会话过期时自动生成对话摘要并保存到数据库（测试模式下跳过） */
-    onSessionExpired: TEST_MODE ? undefined : async (userId: string) => {
+    onSessionExpired: config.testMode ? undefined : async (userId: string) => {
       try {
         const messages = await store.messages.getMessages(userId);
         // 至少需要2轮对话（4条消息）才生成摘要
@@ -119,11 +114,11 @@ async function main() {
   channels.push(wsChannel);
 
   // 8. 启动 QQ Bot 通道（可选）
-  if (process.env.QQBOT_APP_ID && process.env.QQBOT_APP_SECRET) {
+  if (config.qq.appId && config.qq.appSecret) {
     try {
       const qqChannel = createQQChannel({
-        appId: process.env.QQBOT_APP_ID,
-        clientSecret: process.env.QQBOT_CLIENT_SECRET || process.env.QQBOT_APP_SECRET,
+        appId: config.qq.appId!,
+        clientSecret: config.qq.clientSecret!,
       });
       qqChannel.onMessage(handleMessage);
       await qqChannel.start();
@@ -135,9 +130,9 @@ async function main() {
   }
 
   // 9. 监听端口
-  server.listen(PORT, () => {
-    logger.info('[app] server started port=%d', PORT);
-    logger.info('[app] websocket ws://localhost:%d/ws', PORT);
+  server.listen(config.port, () => {
+    logger.info('[app] server started port=%d', config.port);
+    logger.info('[app] websocket ws://localhost:%d/ws', config.port);
   });
 
   // 10. 初始化心跳调度器，每15分钟检查一次用户健康数据
@@ -160,9 +155,9 @@ async function main() {
     logger.info('[app] received %s, shutting down...', signal);
 
     const timeout = setTimeout(() => {
-      logger.warn('[app] shutdown timeout (%dms), forcing exit', SHUTDOWN_TIMEOUT);
+      logger.warn('[app] shutdown timeout (%dms), forcing exit', config.shutdownTimeout);
       process.exit(1);
-    }, SHUTDOWN_TIMEOUT);
+    }, config.shutdownTimeout);
 
     try {
       // 0. 停止心跳调度器

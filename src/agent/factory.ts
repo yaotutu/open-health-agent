@@ -1,13 +1,11 @@
 import { Agent } from '@mariozechner/pi-agent-core';
 import { getModel, streamSimple, createAssistantMessageEventStream } from '@mariozechner/pi-ai';
 import type { Context, AssistantMessageEventStream, UserMessage, AssistantMessage } from '@mariozechner/pi-ai';
+import { config } from '../config';
 import type { Store, Message } from '../store';
 import { logger } from '../infrastructure/logger';
 import { assembleSystemPrompt } from '../prompts/assembler';
 import { createTools } from './tools';
-
-const LLM_PROVIDER = process.env.LLM_PROVIDER || 'anthropic';
-const LLM_MODEL = process.env.LLM_MODEL || 'claude-sonnet-4-6';
 
 /**
  * 将存储层消息转换为 Agent 框架所需的消息格式
@@ -50,7 +48,7 @@ const convertMessages = (messages: Message[]): Array<UserMessage | AssistantMess
         content: [{ type: 'text', text: m.content }],
         api: 'anthropic',
         provider: 'anthropic',
-        model: LLM_MODEL,
+        model: config.llm.model,
         usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } },
         stopReason: 'stop',
         timestamp: m.timestamp,
@@ -127,7 +125,7 @@ export interface CreateAgentOptions {
 export const createHealthAgent = async (options: CreateAgentOptions) => {
   const { store, userId, messages = [] } = options;
 
-  const agentModel = getModel(LLM_PROVIDER as any, LLM_MODEL);
+  const agentModel = getModel(config.llm.provider as any, config.llm.model);
   const tools = createTools(store, userId);
   // 工具列表：包含所有记录、查询、档案、症状解决、记忆和用药工具
   const toolList = [
@@ -175,7 +173,7 @@ export const createHealthAgent = async (options: CreateAgentOptions) => {
   // 包含静态模板（角色、能力、规则）和动态上下文（档案、最近记录、活跃症状、记忆等）
   const systemPrompt = await assembleSystemPrompt(store, userId);
 
-  logger.info('[agent] created provider=%s model=%s tools=%d', LLM_PROVIDER, LLM_MODEL, toolList.length);
+  logger.info('[agent] created provider=%s model=%s tools=%d', config.llm.provider, config.llm.model, toolList.length);
 
   const agent = new Agent({
     initialState: {
