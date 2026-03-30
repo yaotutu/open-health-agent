@@ -11,6 +11,7 @@ import { createSymptomTools } from '../features/symptom/tools';
 import { createDietTools } from '../features/diet/tools';
 import { createMedicationTools } from '../features/medication/tools';
 import { createChronicTools } from '../features/chronic/tools';
+import { createMemoryTools } from '../features/memory/tools';
 
 // ==================== 记录工具参数 Schema ====================
 
@@ -30,34 +31,6 @@ const QueryHealthPatternsParamsSchema = Type.Object({
 
 // ==================== 查询工具参数 Schema ====================
 // QueryRecordsParamsSchema 已移至 tool-factory.ts 统一管理
-
-// ==================== 记忆工具参数 Schema ====================
-
-/**
- * 保存记忆的参数 Schema
- * 用于将用户偏好、反馈或重要事实存储为长期记忆
- */
-const SaveMemoryParamsSchema = Type.Object({
-  content: Type.String({ description: '记忆内容，如用户偏好、反馈或重要事实' }),
-  category: Type.Optional(Type.String({ description: '分类：feedback(反馈)/preference(偏好)/fact(事实)' })),
-});
-
-/**
- * 查询记忆的参数 Schema
- * 支持按分类过滤和限制返回数量
- */
-const QueryMemoriesParamsSchema = Type.Object({
-  category: Type.Optional(Type.String({ description: '按分类过滤' })),
-  limit: Type.Optional(Type.Number({ description: '返回数量限制，默认20' })),
-});
-
-/**
- * 删除记忆的参数 Schema
- * 需要提供要删除的记忆 ID
- */
-const DeleteMemoryParamsSchema = Type.Object({
-  memoryId: Type.Number({ description: '记忆ID' }),
-});
 
 // ==================== 档案工具参数 Schema ====================
 
@@ -85,9 +58,6 @@ const UpdateProfileParamsSchema = Type.Object({
 
 type QueryFoodSymptomCorrelationParams = typeof QueryFoodSymptomCorrelationParamsSchema;
 type QueryHealthPatternsParams = typeof QueryHealthPatternsParamsSchema;
-type SaveMemoryParams = typeof SaveMemoryParamsSchema;
-type QueryMemoriesParams = typeof QueryMemoriesParamsSchema;
-type DeleteMemoryParams = typeof DeleteMemoryParamsSchema;
 type GetProfileParams = typeof GetProfileParamsSchema;
 type UpdateProfileParams = typeof UpdateProfileParamsSchema;
 
@@ -125,6 +95,9 @@ export const createTools = (store: Store, userId: string) => {
 
   // 慢性病工具已迁移至 features/chronic/tools.ts
   const chronicTools = createChronicTools(store.chronic, userId);
+
+  // 记忆工具已迁移至 features/memory/tools.ts
+  const memoryTools = createMemoryTools(store.memory, userId);
 
   /**
    * 查询食物-症状关联分析工具
@@ -244,71 +217,6 @@ export const createTools = (store: Store, userId: string) => {
 
   // 查询饮水记录已迁移至 features/water/tools.ts
 
-  // ==================== 记忆工具 ====================
-
-  /**
-   * 保存记忆工具
-   * 将 Agent 从对话中提取的关键信息（如用户偏好、反馈、健康事实）存储为长期记忆
-   * 这些记忆会在后续对话中被使用，实现跨会话的个性化服务
-   */
-  const saveMemory: AgentTool<SaveMemoryParams> = {
-    name: 'save_memory',
-    label: '保存记忆',
-    description: '保存一条关于用户的长期记忆，如偏好、反馈或重要事实。',
-    parameters: SaveMemoryParamsSchema,
-    execute: async (_toolCallId, params, _signal) => {
-      const record = await store.memory.save(userId, {
-        content: params.content,
-        category: params.category,
-      });
-      return {
-        content: [{ type: 'text', text: `已保存记忆: ${record.content}` }],
-        details: { id: record.id, record },
-      };
-    },
-  };
-
-  /**
-   * 查询记忆工具
-   * 查询已保存的用户记忆，支持按分类过滤
-   * 用于在对话中回忆用户的偏好、反馈或健康事实
-   */
-  const queryMemories: AgentTool<QueryMemoriesParams> = {
-    name: 'query_memories',
-    label: '查询记忆',
-    description: '查询已保存的关于用户的记忆，可按分类过滤。',
-    parameters: QueryMemoriesParamsSchema,
-    execute: async (_toolCallId, params, _signal) => {
-      const records = await store.memory.query(userId, {
-        category: params.category,
-        limit: params.limit,
-      });
-      return {
-        content: [{ type: 'text', text: JSON.stringify({ records, count: records.length }) }],
-        details: { records, count: records.length },
-      };
-    },
-  };
-
-  /**
-   * 删除记忆工具
-   * 根据记忆 ID 删除指定的长期记忆记录
-   * 用于清理过时或错误的记忆信息
-   */
-  const deleteMemory: AgentTool<DeleteMemoryParams> = {
-    name: 'delete_memory',
-    label: '删除记忆',
-    description: '删除指定的一条长期记忆。',
-    parameters: DeleteMemoryParamsSchema,
-    execute: async (_toolCallId, params, _signal) => {
-      const success = await store.memory.remove(userId, params.memoryId);
-      return {
-        content: [{ type: 'text', text: success ? `已删除记忆 ID: ${params.memoryId}` : `未找到记忆 ID: ${params.memoryId}` }],
-        details: { success },
-      };
-    },
-  };
-
   return {
     recordBody: bodyTools.recordBody,
     recordDiet: dietTools.recordDiet,
@@ -336,8 +244,8 @@ export const createTools = (store: Store, userId: string) => {
     querySleepRecords: sleepTools.querySleepRecords,
     queryWaterRecords: waterTools.queryWaterRecords,
     resolveSymptom: symptomTools.resolveSymptom,
-    saveMemory,
-    queryMemories,
-    deleteMemory,
+    saveMemory: memoryTools.saveMemory,
+    queryMemories: memoryTools.queryMemories,
+    deleteMemory: memoryTools.deleteMemory,
   };
 };

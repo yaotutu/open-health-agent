@@ -1,7 +1,8 @@
+/** 记忆存储模块 - 从 src/store/memory.ts 迁移至功能域 */
 import { eq, desc, and } from 'drizzle-orm';
-import type { Db } from './db';
-import { memories, type MemoryRecord, type NewMemoryRecord } from './schema';
-import { logger } from '../infrastructure/logger';
+import type { Db } from '../../store/db';
+import { memories, type MemoryRecord, type NewMemoryRecord } from '../../store/schema';
+import { logger } from '../../infrastructure/logger';
 
 /**
  * 记忆记录数据接口

@@ -7,7 +7,7 @@ import { createProfileStore, type ProfileStore } from './profile';
 import { createSleepStore, type SleepStore } from '../features/sleep/store';
 import { createSymptomStore, type SymptomStore } from '../features/symptom/store';
 import { createWaterStore, type WaterStore } from '../features/water/store';
-import { createMemoryStore, type MemoryStore } from './memory';
+import { createMemoryStore, type MemoryStore } from '../features/memory/store';
 import { createSummaryStore, type SummaryStore } from './summary';
 import { createLogStore, type LogStore } from './logs';
 import { createMedicationStore, type MedicationStore } from '../features/medication/store';
