@@ -1,5 +1,5 @@
 import { readFileSync, readdirSync } from 'fs';
-import { join } from 'path';
+import { join, dirname } from 'path';
 import type { Store } from '../store';
 import type { UserProfile, MemoryRecord, ConversationSummary, ChronicCondition } from '../store/schema';
 
@@ -25,6 +25,34 @@ function readPromptDir(subDir: string): string {
     return files.map(f => readFileSync(join(dirPath, f), 'utf-8')).join('\n\n');
   } catch {
     // 目录不存在或无法读取时返回空字符串
+    return '';
+  }
+}
+
+/**
+ * 扫描所有功能域的提示词文件
+ * 从 features 目录下每个子目录的 prompt.md 收集各功能的提示词
+ * 替代原有的 readPromptDir('capabilities') 调用
+ */
+function readFeaturePrompts(): string {
+  const featuresDir = join(dirname(PROMPTS_DIR), 'features');
+  try {
+    const dirs = readdirSync(featuresDir, { withFileTypes: true })
+      .filter(d => d.isDirectory())
+      .map(d => d.name)
+      .sort();
+
+    const parts: string[] = [];
+    for (const dir of dirs) {
+      try {
+        const content = readFileSync(join(featuresDir, dir, 'prompt.md'), 'utf-8');
+        if (content.trim()) parts.push(content);
+      } catch {
+        // 功能目录无 prompt.md，跳过
+      }
+    }
+    return parts.join('\n\n');
+  } catch {
     return '';
   }
 }
@@ -230,7 +258,8 @@ export async function assembleSystemPrompt(store: Store, userId: string): Promis
 
   // 1. 静态部分（从文件读取，支持热更新，修改 md 文件后下次调用自动生效）
   parts.push(readPromptDir('core'));
-  parts.push(readPromptDir('capabilities'));
+  // 从 features/*/prompt.md 扫描各功能域的提示词，替代原有的 capabilities 目录
+  parts.push(readFeaturePrompts());
   parts.push(readPromptDir('rules'));
 
   // 2. 动态上下文（每次从数据库查询最新数据）
