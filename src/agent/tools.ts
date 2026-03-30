@@ -7,21 +7,10 @@ import { createBodyTools } from '../features/body/tools';
 import { createSleepTools } from '../features/sleep/tools';
 import { createExerciseTools } from '../features/exercise/tools';
 import { createObservationTools } from '../features/observation/tools';
+import { createSymptomTools } from '../features/symptom/tools';
 import { createDietTools } from '../features/diet/tools';
 
 // ==================== 记录工具参数 Schema ====================
-
-/**
- * 记录症状的参数 Schema
- */
-const RecordSymptomParamsSchema = Type.Object({
-  description: Type.String({ description: '症状描述，如"胃痛"、"头痛"、"恶心"等' }),
-  severity: Type.Optional(Type.Number({ description: '严重程度 1-10，10为最严重' })),
-  bodyPart: Type.Optional(Type.String({ description: '身体部位，如"胃部"、"头部"、"胸部"等' })),
-  relatedType: Type.Optional(Type.String({ description: '关联记录类型，如diet、exercise等（可选）' })),
-  relatedId: Type.Optional(Type.Number({ description: '关联记录ID（可选）' })),
-  note: Type.Optional(Type.String({ description: '备注' })),
-});
 
 /**
  * 记录用药的参数 Schema
@@ -103,16 +92,6 @@ const QueryHealthPatternsParamsSchema = Type.Object({
 // ==================== 查询工具参数 Schema ====================
 // QueryRecordsParamsSchema 已移至 tool-factory.ts 统一管理
 
-// ==================== 解决症状工具参数 Schema ====================
-
-/**
- * 标记症状已解决的参数 Schema
- * 需要提供症状记录的 ID
- */
-const ResolveSymptomParamsSchema = Type.Object({
-  symptomId: Type.Number({ description: '症状记录ID' }),
-});
-
 // ==================== 记忆工具参数 Schema ====================
 
 /**
@@ -165,7 +144,6 @@ const UpdateProfileParamsSchema = Type.Object({
 
 // ==================== 工具类型定义 ====================
 
-type RecordSymptomParams = typeof RecordSymptomParamsSchema;
 type RecordMedicationParams = typeof RecordMedicationParamsSchema;
 type QueryMedicationParams = typeof QueryMedicationParamsSchema;
 type StopMedicationParams = typeof StopMedicationParamsSchema;
@@ -175,7 +153,6 @@ type QueryChronicConditionsParams = typeof QueryChronicConditionsParamsSchema;
 type DeactivateChronicConditionParams = typeof DeactivateChronicConditionParamsSchema;
 type QueryFoodSymptomCorrelationParams = typeof QueryFoodSymptomCorrelationParamsSchema;
 type QueryHealthPatternsParams = typeof QueryHealthPatternsParamsSchema;
-type ResolveSymptomParams = typeof ResolveSymptomParamsSchema;
 type SaveMemoryParams = typeof SaveMemoryParamsSchema;
 type QueryMemoriesParams = typeof QueryMemoriesParamsSchema;
 type DeleteMemoryParams = typeof DeleteMemoryParamsSchema;
@@ -199,32 +176,8 @@ export const createTools = (store: Store, userId: string) => {
   // 饮食工具已迁移至 features/diet/tools.ts
   const dietTools = createDietTools(store.diet, userId);
 
-  /**
-   * 记录症状工具
-   * 记录用户的身体不适、症状等信息
-   * 支持关联其他记录类型，帮助追踪症状诱因
-   */
-  const recordSymptom: AgentTool<RecordSymptomParams> = {
-    name: 'record_symptom',
-    label: '记录症状',
-    description: '记录用户的身体不适或症状，如胃痛、头痛等。可关联相关记录（如某次饮食）帮助分析诱因。',
-    parameters: RecordSymptomParamsSchema,
-    execute: async (_toolCallId, params, _signal) => {
-      const record = await store.symptom.record(userId, {
-        description: params.description,
-        severity: params.severity,
-        bodyPart: params.bodyPart,
-        relatedType: params.relatedType,
-        relatedId: params.relatedId,
-        note: params.note,
-      });
-
-      return {
-        content: [{ type: 'text', text: `已记录症状: ${record.description}${record.severity ? ` (严重程度 ${record.severity}/10)` : ''}${record.bodyPart ? ` - ${record.bodyPart}` : ''}` }],
-        details: { id: record.id, record },
-      };
-    },
-  };
+  // 症状工具已迁移至 features/symptom/tools.ts
+  const symptomTools = createSymptomTools(store.symptom, userId);
 
   // 运动工具已迁移至 features/exercise/tools.ts
   const exerciseTools = createExerciseTools(store.exercise, userId);
@@ -506,39 +459,11 @@ export const createTools = (store: Store, userId: string) => {
   // 6 个标准查询工具使用 createQueryTool 工厂函数生成，消除重复代码
   // 每个 queryFn 通过箭头函数绑定 userId，只需传入 options
 
-  /** 查询症状记录 */
-  const querySymptomRecords = createQueryTool({
-    name: 'query_symptom_records',
-    label: '查询症状记录',
-    description: '查询用户的症状/不适记录，支持按时间范围筛选。',
-    queryFn: (options) => store.symptom.query(userId, options),
-  });
-
   // 查询运动记录已迁移至 features/exercise/tools.ts
 
   // 查询睡眠记录已迁移至 features/sleep/tools.ts
 
   // 查询饮水记录已迁移至 features/water/tools.ts
-
-  // ==================== 症状解决工具 ====================
-
-  /**
-   * 标记症状已解决工具
-   * 将指定症状记录的 resolved_at 字段更新为当前时间
-   */
-  const resolveSymptom: AgentTool<ResolveSymptomParams> = {
-    name: 'resolve_symptom',
-    label: '标记症状已解决',
-    description: '将指定症状标记为已解决。',
-    parameters: ResolveSymptomParamsSchema,
-    execute: async (_toolCallId, params, _signal) => {
-      const record = await store.symptom.resolve(userId, params.symptomId);
-      return {
-        content: [{ type: 'text', text: `已标记症状为已解决: ${record.description}` }],
-        details: { record },
-      };
-    },
-  };
 
   // ==================== 记忆工具 ====================
 
@@ -608,7 +533,7 @@ export const createTools = (store: Store, userId: string) => {
   return {
     recordBody: bodyTools.recordBody,
     recordDiet: dietTools.recordDiet,
-    recordSymptom,
+    recordSymptom: symptomTools.recordSymptom,
     recordExercise: exerciseTools.recordExercise,
     recordSleep: sleepTools.recordSleep,
     recordWater: waterTools.recordWater,
@@ -627,11 +552,11 @@ export const createTools = (store: Store, userId: string) => {
     updateProfile,
     queryBodyRecords: bodyTools.queryBodyRecords,
     queryDietRecords: dietTools.queryDietRecords,
-    querySymptomRecords,
+    querySymptomRecords: symptomTools.querySymptomRecords,
     queryExerciseRecords: exerciseTools.queryExerciseRecords,
     querySleepRecords: sleepTools.querySleepRecords,
     queryWaterRecords: waterTools.queryWaterRecords,
-    resolveSymptom,
+    resolveSymptom: symptomTools.resolveSymptom,
     saveMemory,
     queryMemories,
     deleteMemory,

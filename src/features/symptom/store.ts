@@ -1,7 +1,14 @@
+/**
+ * 症状记录存储模块 - 从 src/store/symptom.ts 迁移至功能域
+ *
+ * 症状记录使用自定义实现（不使用 createRecordStore），
+ * 因为它包含独特的 resolve（标记已解决）功能，
+ * 且需要支持关联其他记录类型的能力。
+ */
 import { eq, desc, and, gte, lte } from 'drizzle-orm';
-import type { Db } from './db';
-import { symptomRecords, type SymptomRecord, type NewSymptomRecord } from './schema';
-import { logger } from '../infrastructure/logger';
+import type { Db } from '../../store/db';
+import { symptomRecords, type SymptomRecord, type NewSymptomRecord } from '../../store/schema';
+import { logger } from '../../infrastructure/logger';
 
 /**
  * 查询选项接口

@@ -5,7 +5,7 @@ import { createExerciseStore, type ExerciseStore } from '../features/exercise/st
 import { createMessageStore, type MessageStore } from './messages';
 import { createProfileStore, type ProfileStore } from './profile';
 import { createSleepStore, type SleepStore } from '../features/sleep/store';
-import { createSymptomStore, type SymptomStore } from './symptom';
+import { createSymptomStore, type SymptomStore } from '../features/symptom/store';
 import { createWaterStore, type WaterStore } from '../features/water/store';
 import { createMemoryStore, type MemoryStore } from './memory';
 import { createSummaryStore, type SummaryStore } from './summary';
