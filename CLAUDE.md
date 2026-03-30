@@ -4,62 +4,85 @@
 
 ## 架构
 
-采用简化分层架构，通道无关设计。
+按功能域组织，通道无关设计。每个功能的 store、tools、prompts 集中在同一目录。
 
 ```
 src/
-├── agent/            # Agent 核心
-│   ├── factory.ts         # 创建 Agent 实例（使用 assembler）
-│   ├── tools.ts           # 各类型记录工具、查询工具、记忆工具
-│   └── index.ts           # 导出
-├── prompts/          # 模块化提示词
-│   ├── core/              # 核心角色定义
-│   ├── capabilities/      # 能力说明（记录、查询、分析）
-│   ├── rules/             # 行为规则（安全、风格、主动性）
-│   └── assembler.ts       # 提示词组装器
-├── session/          # 会话管理
-│   ├── manager.ts         # 会话生命周期管理（含过期摘要生成）
-│   └── index.ts           # 导出
-├── store/            # 存储层 (SQLite + Drizzle ORM)
-│   ├── db.ts              # 数据库连接
-│   ├── schema.ts          # 表结构定义（10个表）
-│   ├── body.ts            # 身体数据存储
-│   ├── diet.ts            # 饮食记录存储
-│   ├── symptom.ts         # 症状记录存储
-│   ├── exercise.ts        # 运动记录存储
-│   ├── sleep.ts           # 睡眠记录存储
-│   ├── water.ts           # 饮水记录存储
-│   ├── memory.ts          # 长期记忆存储
-│   ├── summary.ts         # 对话摘要存储
-│   ├── messages.ts        # 消息历史存储
-│   ├── profile.ts         # 用户档案存储
-│   └── index.ts           # Store 统一入口
-├── heartbeat/        # 心跳机制
-│   ├── scheduler.ts       # 定时调度器（15分钟）
-│   ├── runner.ts          # 异常检测和关怀消息生成
-│   ├── heartbeat.md       # 任务配置文件
-│   └── index.ts           # 导出
-├── channels/         # 通道适配器
-│   ├── types.ts           # 类型定义
-│   ├── handler.ts         # 消息处理器（每消息刷新上下文）
-│   ├── websocket.ts       # WebSocket 通道
-│   ├── qq.ts              # QQ Bot 通道
-│   └── index.ts           # 导出
-├── infrastructure/   # 基础设施
-│   └── logger.ts          # Pino 日志
-└── main.ts           # 入口文件
+├── features/                 # 按功能域组织（每个功能三件套）
+│   ├── body/                 #   store.ts + tools.ts + prompt.md
+│   ├── chronic/
+│   ├── diet/
+│   ├── exercise/
+│   ├── medication/
+│   ├── memory/
+│   ├── observation/
+│   ├── profile/
+│   ├── sleep/
+│   ├── symptom/
+│   └── water/
+├── agent/                    # Agent 核心
+│   ├── factory.ts            # 创建 Agent 实例（从 features 收集 tools）
+│   ├── tool-factory.ts       # createQueryTool 查询工具工厂（共享）
+│   ├── tools.ts              # 各功能 tools 聚合入口
+│   └── index.ts              # 导出
+├── prompts/                  # 模块化提示词
+│   ├── core/                 # 核心角色定义
+│   ├── rules/                # 行为规则（安全、风格、主动性、分析指导等）
+│   └── assembler.ts          # 提示词组装器（扫描 features/*/prompt.md）
+├── session/                  # 会话管理
+│   ├── manager.ts            # 会话生命周期管理（含过期摘要生成）
+│   └── index.ts              # 导出
+├── store/                    # 共享存储基础设施
+│   ├── db.ts                 # 数据库连接（含完整 schema 注册）
+│   ├── schema.ts             # 所有表结构定义（14个表，Drizzle 要求集中）
+│   ├── record-store.ts       # createRecordStore 通用工厂（共享）
+│   ├── logs.ts               # 应用日志存储
+│   ├── messages.ts           # 消息历史存储
+│   ├── summary.ts            # 对话摘要存储
+│   └── index.ts              # Store 统一入口（外观模式，聚合各 features 的 store）
+├── heartbeat/                # 心跳机制
+│   ├── scheduler.ts          # 定时调度器（15分钟）
+│   ├── runner.ts             # 异常检测和关怀消息生成
+│   ├── heartbeat.md          # 任务配置文件
+│   └── index.ts              # 导出
+├── channels/                 # 通道适配器
+│   ├── types.ts              # 类型定义
+│   ├── handler.ts            # 消息处理器
+│   ├── websocket.ts          # WebSocket 通道
+│   ├── qq.ts                 # QQ Bot 通道
+│   └── index.ts              # 导出
+├── infrastructure/           # 基础设施
+│   └── logger.ts             # Pino 日志
+├── config.ts                 # 集中环境变量管理
+└── main.ts                   # 入口文件
 ```
 
 ### 架构特点
 
+- **按功能域组织**: 每个功能的 store、tools、prompt 在同一个 `features/<name>/` 目录下，改一个功能不用跳目录
 - **通道无关**: 消息处理与通信通道解耦，支持 WebSocket 和 QQ Bot
-- **统一存储**: SQLite + Drizzle ORM，类型安全的数据库操作
-- **分表存储**: 按数据类型分表（身体、饮食、症状、运动、睡眠、饮水），支持症状关联追踪
-- **流式响应**: 支持打字机效果的流式输出
-- **模块化提示词**: 提示词按 core/capabilities/rules 分模块，支持热更新
-- **动态上下文注入**: 每次消息前 assembler 查询最新数据注入 systemPrompt
-- **长期/短期记忆**: memories 表存储重要事实，conversation_summaries 存储对话摘要
-- **心跳机制**: 每15分钟扫描异常数据，主动推送关怀消息
+- **统一存储外观**: Store 类作为统一入口（外观模式），内部从 features 导入各 store，公共 API 不变
+- **共享工厂**: `createRecordStore` 和 `createQueryTool` 提供通用 record/query/getLatest 模式，简单功能直接复用
+- **自定义 store**: medication、chronic、memory、profile 等有特殊逻辑的功能保持手写实现
+- **工具只做存储**: 工具只提供数据存取，所有分析和决策由 AI 完成
+- **提示词自动发现**: assembler 扫描 `features/*/prompt.md`，加新功能时不用改 assembler
+- **集中配置**: `config.ts` 统一管理环境变量，各模块不直接读取 `process.env`
+
+### 功能模块说明
+
+| 功能 | store 模式 | 特殊方法 |
+|------|-----------|---------|
+| body | createRecordStore | - |
+| diet | createRecordStore | - |
+| sleep | createRecordStore | - |
+| exercise | createRecordStore | - |
+| water | createRecordStore | - |
+| observation | createRecordStore | tags JSON 序列化 |
+| symptom | 手写 | resolve (标记已解决) |
+| medication | 手写 | stop (标记停药), activeOnly 查询 |
+| chronic | 手写 | add/update/deactivate, 无 timestamp 列 |
+| memory | 手写 | save/query/remove/getAll |
+| profile | 手写 | get/upsert |
 
 ## 通道
 
@@ -155,7 +178,7 @@ bun run typecheck  # 类型检查
 
 ## 配置
 
-通过环境变量配置（推荐创建 `.env` 文件）：
+通过环境变量配置（推荐创建 `.env` 文件），由 `src/config.ts` 集中管理：
 
 ```bash
 # 服务器
@@ -203,13 +226,13 @@ logger.error('[app] fatal error=%s', err.message);
 | `exercise_records` | 运动记录 |
 | `sleep_records` | 睡眠记录 |
 | `water_records` | 饮水记录 |
+| `medication_records` | 用药记录 |
+| `chronic_conditions` | 慢性病追踪 |
+| `health_observations` | 健康观察 |
 | `messages` | 会话消息历史 |
 | `memories` | 长期记忆（用户偏好、反馈、重要事实） |
 | `conversation_summaries` | 对话摘要（短期记忆） |
-
-### 图片存储
-
-消息中的图片仅存储元信息（格式、MIME类型），不存储 base64 数据，避免数据库膨胀。实际图片分析在首次接收时由 AI 完成并记录结论。
+| `logs` | 应用日志 |
 
 ### Agent 工具
 
@@ -220,6 +243,21 @@ logger.error('[app] fatal error=%s', err.message);
 - `record_exercise` - 记录运动
 - `record_sleep` - 记录睡眠
 - `record_water` - 记录饮水
+
+#### 用药管理
+- `record_medication` - 记录用药
+- `query_medication_records` - 查询用药记录
+- `stop_medication` - 标记停药
+
+#### 慢性病管理
+- `record_chronic_condition` - 记录慢性病
+- `update_chronic_condition` - 更新慢性病
+- `query_chronic_conditions` - 查询慢性病
+- `deactivate_chronic_condition` - 停用慢性病追踪
+
+#### 健康观察
+- `record_observation` - 记录健康观察
+- `query_observations` - 查询健康观察
 
 #### 档案工具
 - `get_profile` - 获取用户档案
@@ -247,13 +285,15 @@ logger.error('[app] fatal error=%s', err.message);
 
 提示词采用模块化组织，通过 assembler 动态组装：
 
-**静态部分**（修改文件后立即生效，无需重启）：
+**功能提示词**（每个功能目录下，assembler 自动扫描）：
+- `src/features/*/prompt.md` - 各功能的工具使用说明和注意事项
+
+**全局规则**（修改文件后立即生效，无需重启）：
 - `src/prompts/core/` - 角色定义
-- `src/prompts/capabilities/` - 能力说明（记录、查询、分析）
-- `src/prompts/rules/` - 行为规则（安全、风格、主动性、症状判断、用药）
+- `src/prompts/rules/` - 行为规则（安全、风格、主动性、分析指导、查询指导）
 
 **动态部分**（每次消息前从数据库查询）：
-- 用户档案、最近记录、活跃症状、长期记忆、对话摘要
+- 用户档案、最近记录、活跃症状、慢性病、长期记忆、对话摘要
 
 **设计原则**: 所有决策由大模型完成，提示词只提供指导和数据。
 
@@ -281,3 +321,4 @@ logger.error('[app] fatal error=%s', err.message);
 
 # 重要规则，用户手动填写，禁止修改
 - 添加详细的中文注释，解释每个函数和重要代码块的作用
+- 避免过度设计，保持代码简洁易懂
