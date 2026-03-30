@@ -7,6 +7,7 @@ import { eq, desc, and } from 'drizzle-orm';
 import type { Db } from '../../store/db';
 import { chronicConditions, type ChronicCondition, type NewChronicCondition } from '../../store/schema';
 import { logger } from '../../infrastructure/logger';
+import { safeJsonStringify } from '../../store/json-utils';
 
 /**
  * 慢性病记录数据接口
@@ -49,7 +50,7 @@ export const createChronicStore = (db: Db) => {
       condition: data.condition,
       severity: data.severity,
       seasonalPattern: data.seasonalPattern,
-      triggers: data.triggers ? JSON.stringify(data.triggers) : null,
+      triggers: data.triggers ? safeJsonStringify(data.triggers) : null,
       notes: data.notes,
       isActive: true,
       createdAt: now,
@@ -76,7 +77,7 @@ export const createChronicStore = (db: Db) => {
 
     if (data.severity !== undefined) updateData.severity = data.severity;
     if (data.seasonalPattern !== undefined) updateData.seasonalPattern = data.seasonalPattern;
-    if (data.triggers !== undefined) updateData.triggers = JSON.stringify(data.triggers);
+    if (data.triggers !== undefined) updateData.triggers = safeJsonStringify(data.triggers);
     if (data.notes !== undefined) updateData.notes = data.notes;
 
     const result = await db

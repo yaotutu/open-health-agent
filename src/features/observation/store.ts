@@ -2,6 +2,7 @@
 import type { Db } from '../../store/db';
 import { healthObservations, type HealthObservation } from '../../store/schema';
 import { createRecordStore, type QueryOptions } from '../../store/record-store';
+import { safeJsonStringify } from '../../store/json-utils';
 
 /**
  * 健康观察记录的数据接口
@@ -30,7 +31,7 @@ export const createObservationStore = (db: Db) => {
     mapRecord: (userId, data: ObservationRecordData, now) => ({
       userId,
       content: data.content,
-      tags: data.tags ? JSON.stringify(data.tags) : null,
+      tags: data.tags ? safeJsonStringify(data.tags) : null,
       timestamp: data.timestamp ?? now,
     }),
   });

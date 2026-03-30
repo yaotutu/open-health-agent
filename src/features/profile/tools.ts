@@ -6,6 +6,7 @@ import { Type } from '@sinclair/typebox';
 import type { AgentTool } from '@mariozechner/pi-agent-core';
 import type { ProfileStore } from './store';
 import type { UserProfile } from '../../store/schema';
+import { safeJsonParse, safeJsonStringify } from '../../store/json-utils';
 
 /**
  * 获取用户档案的参数 Schema
@@ -61,10 +62,11 @@ export const createProfileTools = (store: ProfileStore, userId: string) => {
       }
 
       // 解析 JSON 数组字段（疾病史和过敏史在数据库中存储为 JSON 字符串）
+      // 使用 safeJsonParse 防止损坏的 JSON 数据导致运行时崩溃
       const parsed = {
         ...profile,
-        diseases: profile.diseases ? JSON.parse(profile.diseases) as string[] : [],
-        allergies: profile.allergies ? JSON.parse(profile.allergies) as string[] : [],
+        diseases: safeJsonParse<string[]>(profile.diseases, []),
+        allergies: safeJsonParse<string[]>(profile.allergies, []),
       };
 
       return {
@@ -90,9 +92,10 @@ export const createProfileTools = (store: ProfileStore, userId: string) => {
       if (params.height !== undefined) data.height = params.height;
       if (params.age !== undefined) data.age = params.age;
       if (params.gender !== undefined) data.gender = params.gender;
-      // 疾病史和过敏史是字符串数组，需要序列化为 JSON 字符串
-      if (params.diseases !== undefined) data.diseases = JSON.stringify(params.diseases);
-      if (params.allergies !== undefined) data.allergies = JSON.stringify(params.allergies);
+      // 疾病史和过敏史是字符串数组，需要序列化为 JSON 字符串存入数据库
+      // 使用 safeJsonStringify 防止序列化异常导致写入失败
+      if (params.diseases !== undefined) data.diseases = safeJsonStringify(params.diseases);
+      if (params.allergies !== undefined) data.allergies = safeJsonStringify(params.allergies);
       if (params.dietPreferences !== undefined) data.dietPreferences = params.dietPreferences;
       if (params.healthGoal !== undefined) data.healthGoal = params.healthGoal;
 

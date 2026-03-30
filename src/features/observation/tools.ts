@@ -6,6 +6,7 @@ import { Type } from '@sinclair/typebox';
 import type { AgentTool } from '@mariozechner/pi-agent-core';
 import type { ObservationStore } from './store';
 import { createQueryTool } from '../../agent/tool-factory';
+import { safeJsonParse } from '../../store/json-utils';
 
 /**
  * 记录健康观察的参数 Schema
@@ -77,10 +78,11 @@ export const createObservationTools = (store: ObservationStore, userId: string) 
         limit: params.limit,
       });
 
-      // 解析 tags JSON 字段
+      // 解析 tags JSON 字段（数据库中存储为 JSON 字符串）
+      // 使用 safeJsonParse 防止损坏数据导致解析崩溃
       const parsed = records.map(r => ({
         ...r,
-        tags: r.tags ? JSON.parse(r.tags) : [],
+        tags: safeJsonParse<string[]>(r.tags, []),
       }));
 
       return {

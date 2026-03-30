@@ -7,6 +7,7 @@
 import { Type } from '@sinclair/typebox';
 import type { AgentTool } from '@mariozechner/pi-agent-core';
 import type { ChronicStore } from './store';
+import { safeJsonParse } from '../../store/json-utils';
 
 /**
  * 记录慢性病的参数 Schema
@@ -125,10 +126,11 @@ export const createChronicTools = (store: ChronicStore, userId: string) => {
         activeOnly: params.activeOnly ?? true,
       });
 
-      // 解析 triggers JSON 字段
+      // 解析 triggers JSON 字段（数据库中存储为 JSON 字符串）
+      // 使用 safeJsonParse 防止损坏数据导致解析崩溃
       const parsed = records.map(r => ({
         ...r,
-        triggers: r.triggers ? JSON.parse(r.triggers) : [],
+        triggers: safeJsonParse<string[]>(r.triggers, []),
       }));
 
       return {
