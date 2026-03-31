@@ -438,6 +438,36 @@ export type HeartbeatTask = typeof heartbeatTasks.$inferSelect;
 export type NewHeartbeatTask = typeof heartbeatTasks.$inferInsert;
 
 /**
+ * 渠道绑定表
+ * 存储用户与消息渠道（QQ Bot、微信等）的绑定关系和凭据
+ * 每个用户可以绑定一个渠道，凭据以 JSON 格式存储（不同渠道字段不同）
+ */
+export const channelBindings = sqliteTable('channel_bindings', {
+  /** 绑定ID，自增主键 */
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  /** 用户ID，格式: "渠道:标识"，如 "qq:1024xxxxx" */
+  userId: text('user_id').notNull(),
+  /** 渠道类型标识，如 "qq"、"wechat"、"telegram" */
+  channelType: text('channel_type').notNull(),
+  /** 渠道凭据，JSON 格式字符串，不同渠道字段不同 */
+  credentials: text('credentials').notNull(),
+  /** 绑定状态："active"(活跃) | "inactive"(停用) */
+  status: text('status').notNull().default('active'),
+  /** 创建时间戳 */
+  createdAt: integer('created_at').notNull(),
+  /** 更新时间戳 */
+  updatedAt: integer('updated_at').notNull(),
+}, (table) => [
+  /** 用户ID索引，加速按用户查询绑定信息 */
+  index('idx_channel_binding_user_id').on(table.userId),
+]);
+
+/** 渠道绑定查询结果类型 */
+export type ChannelBinding = typeof channelBindings.$inferSelect;
+/** 渠道绑定插入类型 */
+export type NewChannelBinding = typeof channelBindings.$inferInsert;
+
+/**
  * 应用日志表
  * 存储应用运行日志（info 及以上级别），写入数据库而非控制台输出
  */

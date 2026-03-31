@@ -2,3 +2,6 @@ export type { ChannelAdapter, ChannelMessage, ChannelContext, MessageHandler, Cl
 export { createMessageHandler, type CreateMessageHandlerOptions } from './handler';
 export { WebSocketChannel, createWebSocketChannel, type WebSocketChannelOptions } from './websocket';
 export { QQChannel, createQQChannel, type QQChannelOptions } from './qq';
+export type { ChannelFactory, FieldConfig } from './factory';
+export { getChannelFactories, getChannelFactory } from './registry';
+export { QqChannelFactory } from './qq-factory';

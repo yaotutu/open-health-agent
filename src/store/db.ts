@@ -17,7 +17,9 @@ import {
   healthObservations,    // 健康观察记录表
   // 心跳任务表和应用日志表，注册到 Drizzle 以支持 Kit 迁移
   heartbeatTasks,        // 心跳任务表（用户主动关怀定时任务）
-  logs                   // 应用日志表（结构化日志持久化）
+  logs,                  // 应用日志表（结构化日志持久化）
+  // 渠道绑定表，存储用户与消息渠道的绑定关系和凭据
+  channelBindings        // 渠道绑定表
 } from './schema';
 
 /**
@@ -44,6 +46,7 @@ export interface CreateDbResult {
     // 心跳任务表和应用日志表的类型定义，注册后 Drizzle 可正确推断类型
     heartbeatTasks: typeof heartbeatTasks;           // 心跳任务
     logs: typeof logs;                               // 应用日志
+    channelBindings: typeof channelBindings;         // 渠道绑定
   }>>;
   sqlite: Database;
 }
@@ -74,7 +77,9 @@ export const createDb = (dbPath: string): CreateDbResult => {
       healthObservations,    // 健康观察记录表
       // 注册心跳任务表和应用日志表，使 Drizzle Kit 能够管理这些表的迁移
       heartbeatTasks,        // 心跳任务表
-      logs                   // 应用日志表
+      logs,                  // 应用日志表
+      // 注册渠道绑定表，使用户渠道绑定信息可被 Drizzle Kit 管理
+      channelBindings        // 渠道绑定表
     }
   });
   return { db, sqlite };

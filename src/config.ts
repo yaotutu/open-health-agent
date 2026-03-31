@@ -21,15 +21,7 @@ export const config = {
     model: process.env.LLM_MODEL || 'claude-sonnet-4-6',
   },
 
-  /** QQ Bot 配置（可选，仅在配置了 appId 和 appSecret 时启用） */
-  qq: {
-    /** QQ Bot 应用的 App ID */
-    appId: process.env.QQBOT_APP_ID,
-    /** QQ Bot 应用的 App Secret */
-    appSecret: process.env.QQBOT_APP_SECRET,
-    /** QQ Bot 的 Client Secret，未配置时回退使用 appSecret */
-    clientSecret: process.env.QQBOT_CLIENT_SECRET || process.env.QQBOT_APP_SECRET,
-  },
+  /** QQ Bot 配置已移除 — 凭据通过登录页绑定，存储在 channel_bindings 表中 */
 
   /** 日志相关配置 */
   log: {

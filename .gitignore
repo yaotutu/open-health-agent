@@ -5,4 +5,5 @@ workspace/
 *.log
 .worktrees/
 .claude/worktrees/
+.superpowers/
 data/
