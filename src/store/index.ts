@@ -37,10 +37,6 @@ import {
   type HealthObservation,
 } from './schema';
 import type { Database } from 'bun:sqlite';
-// Drizzle 迁移工具：用于从 SQL 文件自动建表/改表，替代手写 initTables
-import { migrate } from 'drizzle-orm/bun-sqlite/migrator';
-// 结构化日志，记录迁移完成等事件
-import { logger } from '../infrastructure/logger';
 
 // 导出所有存储创建函数
 export {
@@ -146,12 +142,8 @@ export class Store {
     this.db = db;
     this.sqlite = sqlite;
 
-    // 使用 Drizzle 迁移管理表结构（替代原来的 raw SQL initTables）
-    // 从 ./drizzle 目录读取迁移 SQL 文件，自动建表和创建索引
-    migrate(db, { migrationsFolder: './drizzle' });
-    logger.info('[store] database migrated');
-
-    // 初始化各存储模块（Drizzle 迁移已确保表存在，初始化顺序无关）
+    // 注意：表结构由 drizzle-kit push 管理，启动前需确保已执行 bun run db:push
+    // schema.ts 是唯一的表结构定义源，drizzle-kit push 会自动同步到数据库
     this.body = createBodyStore(this.db);
     this.diet = createDietStore(this.db);
     this.exercise = createExerciseStore(this.db);
