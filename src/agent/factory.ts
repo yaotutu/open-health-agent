@@ -131,10 +131,7 @@ export const createHealthAgent = async (options: CreateAgentOptions) => {
   const { store, userId, messages = [], channel = 'websocket', cronService } = options;
 
   const agentModel = getModel(config.llm.provider as any, config.llm.model);
-  const tools = createTools(store, userId, channel, cronService);
-  // 自动收集所有工具：从 createTools 返回的对象中提取所有非空值
-  // 以后新增工具只需在 tools.ts 中添加，无需手动同步此处
-  const toolList = Object.values(tools).filter((t): t is NonNullable<typeof t> => t != null);
+  const toolList = createTools(store, userId, channel, cronService);
 
   // 使用 assembler 动态组装系统提示词
   // 包含静态模板（角色、能力、规则）和动态上下文（档案、最近记录、活跃症状、记忆等）
