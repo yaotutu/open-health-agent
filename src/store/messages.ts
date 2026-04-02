@@ -34,7 +34,22 @@ export const createMessageStore = (db: Db) => {
     await db.delete(messages).where(eq(messages.userId, userId));
   };
 
-  return { getMessages, appendMessage, clear };
+  /**
+   * 获取用户最后一条消息的时间戳
+   * 用于惰性摘要触发：判断用户是否长时间未活跃
+   * @param userId 用户ID
+   * @returns 最后一条消息的时间戳，无消息返回 null
+   */
+  const getLastMessageTimestamp = async (userId: string): Promise<number | null> => {
+    const result = await db.select({ timestamp: messages.timestamp })
+      .from(messages)
+      .where(eq(messages.userId, userId))
+      .orderBy(desc(messages.timestamp))
+      .limit(1);
+    return result[0]?.timestamp ?? null;
+  };
+
+  return { getMessages, appendMessage, clear, getLastMessageTimestamp };
 };
 
 export type MessageStore = ReturnType<typeof createMessageStore>;
