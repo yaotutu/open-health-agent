@@ -132,54 +132,9 @@ export const createHealthAgent = async (options: CreateAgentOptions) => {
 
   const agentModel = getModel(config.llm.provider as any, config.llm.model);
   const tools = createTools(store, userId, channel, cronService);
-  // 工具列表：包含所有记录、查询、档案、症状解决、记忆和用药工具
-  const toolList = [
-    // 记录工具：各类健康数据的录入
-    tools.recordBody,
-    tools.recordDiet,
-    tools.recordSymptom,
-    tools.recordExercise,
-    tools.recordSleep,
-    tools.recordWater,
-    // 用药工具：记录用药、查询用药历史、标记停药
-    tools.recordMedication,
-    tools.queryMedicationRecords,
-    tools.stopMedication,
-    // 慢性病工具：记录、更新、查询、停用慢性病追踪
-    tools.recordChronicCondition,
-    tools.updateChronicCondition,
-    tools.queryChronicConditions,
-    tools.deactivateChronicCondition,
-    // 健康观察工具：记录和查询非结构化健康观察
-    tools.recordObservation,
-    tools.queryObservations,
-    // 档案工具：获取和更新用户个人健康档案
-    tools.getProfile,
-    tools.updateProfile,
-    // 查询工具：按时间范围查询各类型历史记录
-    tools.queryBodyRecords,
-    tools.queryDietRecords,
-    tools.querySymptomRecords,
-    tools.queryExerciseRecords,
-    tools.querySleepRecords,
-    tools.queryWaterRecords,
-    // 症状解决工具：标记症状为已解决
-    tools.resolveSymptom,
-    // 记忆工具：长期记忆的存储、查询和删除
-    tools.saveMemory,
-    tools.queryMemories,
-    tools.deleteMemory,
-    // 心跳任务工具：添加、查看、删除心跳检查任务
-    tools.addHeartbeatTask,
-    tools.listHeartbeatTasks,
-    tools.removeHeartbeatTask,
-    // 定时任务工具（仅在 cronService 可用时存在）
-    ...(tools.scheduleCron ? [
-      tools.scheduleCron,
-      tools.listCronJobs,
-      tools.removeCronJob,
-    ] : []),
-  ].filter((t): t is NonNullable<typeof t> => t != null);
+  // 自动收集所有工具：从 createTools 返回的对象中提取所有非空值
+  // 以后新增工具只需在 tools.ts 中添加，无需手动同步此处
+  const toolList = Object.values(tools).filter((t): t is NonNullable<typeof t> => t != null);
 
   // 使用 assembler 动态组装系统提示词
   // 包含静态模板（角色、能力、规则）和动态上下文（档案、最近记录、活跃症状、记忆等）
