@@ -91,7 +91,7 @@ async function main() {
       logger.info('[cron] executing id=%s name=%s userId=%s', job.id, job.name, userId);
       cronService.setCronContext(true);
       try {
-        // 统一通过 BotManager 获取/创建 Bot，复用 Agent + Session
+        // 通过 BotManager 获取/创建 Bot，复用 Agent + Session
         const bot = await botManager.getOrCreateBot(userId);
         await bot.promptAndDeliver(job.message, job.deliver);
       } catch (err) {

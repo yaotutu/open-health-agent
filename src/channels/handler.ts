@@ -3,6 +3,7 @@ import type { SessionManager } from '../session';
 import type { Store } from '../store';
 import type { ChannelMessage, ChannelContext } from './types';
 import { logger } from '../infrastructure/logger';
+import { withTimeContext } from '../infrastructure/time';
 import { assembleSystemPrompt } from '../prompts/assembler';
 
 export interface CreateMessageHandlerOptions {
@@ -72,11 +73,12 @@ export const createMessageHandler = (options: CreateMessageHandlerOptions) => {
       const updatedPrompt = await assembleSystemPrompt(store, userId);
       session.agent.setSystemPrompt(updatedPrompt);
 
-      // 3. 调用 Agent，如有图片则传入
+      // 3. 调用 Agent，如有图片则传入（在消息前注入当前时间，确保 LLM 精确感知时间）
+      const timedContent = withTimeContext(content);
       if (images && images.length > 0) {
-        await session.agent.prompt(content, images);
+        await session.agent.prompt(timedContent, images);
       } else {
-        await session.agent.prompt(content);
+        await session.agent.prompt(timedContent);
       }
 
       // 4. 提取响应并保存

@@ -11,6 +11,8 @@ export class QQChannel implements DeliverableChannel {
   readonly name = 'qq';
   private client: QQBotClient;
   private messageHandler?: MessageHandler;
+  /** 缓存用户的 openid，用于主动推送（sendToUser） */
+  private cachedOpenId: string | null = null;
 
   constructor(options: QQChannelOptions) {
     this.client = new QQBotClient({
@@ -22,6 +24,10 @@ export class QQChannel implements DeliverableChannel {
   async start(): Promise<void> {
     this.client.onMessage(async (event: MessageEvent) => {
       if (!this.messageHandler) return;
+
+      // 缓存 openid，用于后续主动推送
+      // 同一个 QQ Bot 应用只服务一个用户，openid 不会变
+      this.cachedOpenId = event.senderId;
 
       const channelMsg: ChannelMessage = {
         id: event.messageId,
@@ -83,22 +89,22 @@ export class QQChannel implements DeliverableChannel {
 
   /**
    * 主动向用户发送消息（无需用户先发消息）
-   * 直接从 userId 中解析 openid，不需要缓存
-   * userId 格式：qq:{openid}，openid 即为 QQ Bot API 所需的用户标识
-   * @param userId 用户ID（格式: "qq:openid"）
+   * 优先使用缓存的 openid（消息入口已统一为 qq:{appId}，不再包含 openid）
+   * 降级从 userId 中解析（兼容旧数据）
+   * @param userId 用户ID（格式: "qq:xxx"）
    * @param text 消息内容
    * @returns 是否成功送达
    */
   async sendToUser(userId: string, text: string): Promise<boolean> {
-    // 从 userId 中提取 openid（格式: "qq:{openid}"）
-    const openid = userId.replace(/^qq:/, '');
+    // 优先使用缓存的 openid，降级从 userId 中解析
+    const openid = this.cachedOpenId || userId.replace(/^qq:/, '');
     if (!openid) return false;
 
     try {
       const result = await this.client.sendPrivateMessageProactive(openid, text);
       return result.success;
     } catch (err) {
-      logger.error('[qq] 主动推送失败 userId=%s error=%s', userId, (err as Error).message);
+      logger.error('[qq] 主动推送失败 userId=%s openid=%s error=%s', userId, openid, (err as Error).message);
       return false;
     }
   }

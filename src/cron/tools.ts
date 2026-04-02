@@ -124,6 +124,16 @@ export const createCronTools = (
             details: {},
           };
         }
+        // 校验时间不能在过去
+        const now = Date.now();
+        if (atMs <= now) {
+          const timeStr = new Date(atMs).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
+          const nowStr = new Date(now).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
+          return {
+            content: [{ type: 'text', text: `错误：指定的时间 "${timeStr}" 已经过去了（当前时间：${nowStr}），请设置一个未来的时间` }],
+            details: {},
+          };
+        }
         scheduleKind = 'at';
         scheduleParams = { atMs };
         name = `一次性: ${params.at}`;

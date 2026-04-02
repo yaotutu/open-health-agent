@@ -7,6 +7,7 @@ import type { Store, Message } from '../store';
 import type { CronService } from '../cron/service';
 import { config } from '../config';
 import { logger } from '../infrastructure/logger';
+import { withTimeContext } from '../infrastructure/time';
 
 /**
  * 从 Agent 事件流中提取助手响应文本
@@ -56,7 +57,6 @@ export class UserBot {
     private cronService?: CronService,
   ) {
     this.userId = userId;
-    logger.info('[user-bot] DEBUG cronService=%s for userId=%s', typeof this.cronService, userId);
 
     // 创建 Agent 工厂函数：为这个用户创建专属 Agent
     const createAgent = async (uid: string, messages: Message[]) =>
@@ -122,8 +122,8 @@ export class UserBot {
         events.push(event);
       });
 
-      // 触发 Agent 处理
-      await session.agent.prompt(message);
+      // 触发 Agent 处理（注入当前时间，确保 cron 等场景也能精确感知时间）
+      await session.agent.prompt(withTimeContext(message));
       unsubscribe();
 
       // 提取响应文本
@@ -158,7 +158,11 @@ export class UserBot {
   async addChannel(channel: ChannelAdapter): Promise<void> {
     // 注册消息处理回调
     channel.onMessage(async (message, context) => {
-      await this.messageHandler(message, context);
+      // 统一使用 bot 的 userId 处理消息
+      // QQ 场景：消息 userId 是 qq:{openid}，替换为 bot 的 qq:{appId}，避免身份分裂
+      // WebSocket 场景：已经一致，无影响
+      const unifiedMessage = { ...message, userId: this.userId };
+      await this.messageHandler(unifiedMessage, context);
     });
 
     // 启动渠道监听（连接 QQ 等远程服务，开始接收消息）
