@@ -35,6 +35,12 @@ export const config = {
     intervalMs: Number(process.env.HEARTBEAT_INTERVAL_MS) || 15 * 60 * 1000,
   },
 
+  /** 会话相关配置 */
+  session: {
+    /** 惰性摘要触发间隔（毫秒）：用户消息间隔超过此值时生成上一段对话摘要，默认 4 小时 */
+    summaryIntervalMs: Number(process.env.SESSION_SUMMARY_INTERVAL_MS) || 4 * 60 * 60 * 1000,
+  },
+
   /** 定时任务相关配置（任务定义存储在 SQLite cron_jobs 表中） */
   cron: {},
 };
