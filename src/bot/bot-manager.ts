@@ -3,7 +3,8 @@ import { ChannelBindingStore } from '../store/channel-binding-store';
 import { UserBot } from './user-bot';
 import { getChannelFactory } from '../channels/registry';
 import type { CronService } from '../cron/service';
-import { logger } from '../infrastructure/logger';
+import { createLogger } from '../infrastructure/logger';
+const log = createLogger('bot');
 
 /**
  * Bot 管理器
@@ -31,14 +32,14 @@ export class BotManager {
    */
   async init(): Promise<void> {
     const bindings = await this.bindingStore.listActive();
-    logger.info('[bot-manager] restoring %d bindings', bindings.length);
+    log.info('restoring %d bindings', bindings.length);
 
     for (const binding of bindings) {
       try {
         await this.createAndStart(binding.userId, binding.channelType, JSON.parse(binding.credentials));
-        logger.info('[bot-manager] restored userId=%s channel=%s', binding.userId, binding.channelType);
+        log.info('restored userId=%s channel=%s', binding.userId, binding.channelType);
       } catch (err) {
-        logger.error('[bot-manager] restore failed userId=%s error=%s', binding.userId, (err as Error).message);
+        log.error('restore failed userId=%s error=%s', binding.userId, (err as Error).message);
       }
     }
   }
@@ -81,7 +82,7 @@ export class BotManager {
     // 注册到管理器
     this.bots.set(userId, bot);
 
-    logger.info('[bot-manager] started userId=%s channel=%s total=%d', userId, channelType, this.bots.size);
+    log.info('started userId=%s channel=%s total=%d', userId, channelType, this.bots.size);
     return bot;
   }
 
@@ -147,7 +148,7 @@ export class BotManager {
     // 更新绑定状态为 inactive
     await this.bindingStore.updateStatus(userId, 'inactive');
 
-    logger.info('[bot-manager] unbound userId=%s', userId);
+    log.info('unbound userId=%s', userId);
   }
 
   /**
@@ -177,7 +178,7 @@ export class BotManager {
       await this.store.profile.upsert(userId, {});
     }
 
-    logger.info('[bot-manager] created bare bot userId=%s', userId);
+    log.info('created bare bot userId=%s', userId);
     return bot;
   }
 
@@ -197,11 +198,11 @@ export class BotManager {
       try {
         await bot.stop();
       } catch (err) {
-        logger.error('[bot-manager] stop failed userId=%s error=%s', bot.userId, (err as Error).message);
+        log.error('stop failed userId=%s error=%s', bot.userId, (err as Error).message);
       }
     }
     this.bots.clear();
-    logger.info('[bot-manager] all bots stopped');
+    log.info('all bots stopped');
   }
 
   /**

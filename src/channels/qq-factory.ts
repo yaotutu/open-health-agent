@@ -1,7 +1,8 @@
 import { QQChannel } from './qq';
 import type { ChannelFactory, FieldConfig } from './factory';
 import type { ChannelAdapter } from './types';
-import { logger } from '../infrastructure/logger';
+import { createLogger } from '../infrastructure/logger';
+const log = createLogger('qq');
 
 /**
  * QQ Bot 渠道工厂
@@ -41,7 +42,7 @@ export class QqChannelFactory implements ChannelFactory {
       throw new Error('AppID 和 AppSecret 不能为空');
     }
 
-    logger.info('[qq-factory] creating channel appId=%s', appId);
+    log.info('creating channel appId=%s', appId);
 
     // 创建 QQ 渠道实例（clientSecret 使用 appSecret）
     const channel = new QQChannel({

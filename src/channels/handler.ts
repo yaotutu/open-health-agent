@@ -1,7 +1,8 @@
 import type { Agent } from '@mariozechner/pi-agent-core';
 import type { Store, Message } from '../store';
 import type { ChannelMessage, ChannelContext } from './types';
-import { logger } from '../infrastructure/logger';
+import { createLogger } from '../infrastructure/logger';
+const log = createLogger('handler');
 import { withTimeContext, formatDate } from '../infrastructure/time';
 import { assembleSystemPrompt } from '../prompts/assembler';
 import { extractAssistantText } from '../agent/event-utils';
@@ -46,9 +47,9 @@ function maybeGenerateSummary(store: Store, userId: string): void {
         startTimestamp: messages[0].timestamp,
         endTimestamp: messages[messages.length - 1].timestamp,
       });
-      logger.info('[handler] summary generated userId=%s count=%d', userId, messages.length);
+      log.info('summary generated userId=%s count=%d', userId, messages.length);
     } catch (err) {
-      logger.error('[handler] summary failed userId=%s error=%s', userId, (err as Error).message);
+      log.error('summary failed userId=%s error=%s', userId, (err as Error).message);
     }
   })();
 }
@@ -58,7 +59,6 @@ export const createMessageHandler = (options: CreateMessageHandlerOptions) => {
 
   return async (message: ChannelMessage, context: ChannelContext): Promise<void> => {
     const { userId, content } = message;
-    logger.info('[handler] processing userId=%s channel=%s', userId, message.channel);
 
     try {
       // 1. 惰性摘要检查（fire-and-forget，不阻塞）
@@ -132,17 +132,17 @@ export const createMessageHandler = (options: CreateMessageHandlerOptions) => {
 
       // abort 不是错误，静默处理
       if (errMsg?.includes('aborted')) {
-        logger.info('[handler] request aborted userId=%s', userId);
+        log.info('request aborted userId=%s', userId);
         return;
       }
 
       // 其他错误：兜底回复，确保用户收到响应
-      logger.error('[handler] error=%s', errMsg);
+      log.error('error userId=%s error=%s', userId, errMsg);
       const timestamp = formatDate(Date.now());
       try {
         await context.send(`抱歉，${timestamp} 处理时出了点问题，请稍后再试。`);
       } catch (sendErr) {
-        logger.error('[handler] fallback send failed userId=%s error=%s', userId, (sendErr as Error).message);
+        log.error('fallback send failed userId=%s error=%s', userId, (sendErr as Error).message);
       }
     }
   };

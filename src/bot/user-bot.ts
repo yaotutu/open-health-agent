@@ -6,7 +6,8 @@ import type { ChannelAdapter, ChannelMessage, ChannelContext, DeliverableChannel
 import type { Store, Message } from '../store';
 import type { CronService } from '../cron/service';
 import { config } from '../config';
-import { logger } from '../infrastructure/logger';
+import { createLogger } from '../infrastructure/logger';
+const log = createLogger('bot');
 import { withTimeContext, formatDate } from '../infrastructure/time';
 import { assembleSystemPrompt } from '../prompts/assembler';
 
@@ -138,7 +139,7 @@ export class UserBot {
 
         const responseText = assistantMessage ? extractAssistantText(assistantMessage) : '';
         if (!responseText) {
-          logger.warn('[user-bot] promptAndDeliver no response userId=%s', this.userId);
+          log.warn('promptAndDeliver no response userId=%s', this.userId);
           return null;
         }
 
@@ -154,13 +155,13 @@ export class UserBot {
         return responseText;
       } catch (err) {
         // 兜底回复：cron 任务失败也通知用户
-        logger.error('[user-bot] promptAndDeliver failed userId=%s error=%s', this.userId, (err as Error).message);
+        log.error('promptAndDeliver failed userId=%s error=%s', this.userId, (err as Error).message);
         if (deliver) {
           const timestamp = formatDate(Date.now());
           try {
             await this.sendToUser(`抱歉，${timestamp} 处理时出了点问题，请稍后再试。`);
           } catch (sendErr) {
-            logger.error('[user-bot] fallback send failed userId=%s error=%s', this.userId, (sendErr as Error).message);
+            log.error('fallback send failed userId=%s error=%s', this.userId, (sendErr as Error).message);
           }
         }
         return null;
@@ -205,7 +206,7 @@ export class UserBot {
       this.deliverableChannels.push(channel as DeliverableChannel);
     }
 
-    logger.info('[user-bot] channel added userId=%s channel=%s', this.userId, channel.name);
+    log.info('channel added userId=%s channel=%s', this.userId, channel.name);
   }
 
   /**
@@ -216,11 +217,10 @@ export class UserBot {
       try {
         const delivered = await channel.sendToUser(this.userId, text);
         if (delivered) {
-          logger.info('[user-bot] delivered userId=%s channel=%s', this.userId, channel.name);
           return true;
         }
       } catch (err) {
-        logger.error('[user-bot] send failed userId=%s channel=%s error=%s', this.userId, channel.name, (err as Error).message);
+        log.error('send failed userId=%s channel=%s error=%s', this.userId, channel.name, (err as Error).message);
       }
     }
     return false;
@@ -234,11 +234,11 @@ export class UserBot {
       try {
         await channel.stop();
       } catch (err) {
-        logger.error('[user-bot] stop channel failed userId=%s channel=%s error=%s', this.userId, channel.name, (err as Error).message);
+        log.error('stop channel failed userId=%s channel=%s error=%s', this.userId, channel.name, (err as Error).message);
       }
     }
     this.channels.clear();
     this.deliverableChannels = [];
-    logger.info('[user-bot] stopped userId=%s', this.userId);
+    log.info('stopped userId=%s', this.userId);
   }
 }

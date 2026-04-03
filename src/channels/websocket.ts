@@ -1,7 +1,8 @@
 import http from 'http';
 import { WebSocket, WebSocketServer } from 'ws';
 import type { DeliverableChannel, MessageHandler, ChannelMessage, ChannelContext, ClientMessage, ServerMessage } from './types';
-import { logger } from '../infrastructure/logger';
+import { createLogger } from '../infrastructure/logger';
+const log = createLogger('ws');
 
 interface Connection {
   ws: WebSocket;
@@ -68,17 +69,17 @@ export class WebSocketChannel implements DeliverableChannel {
   async start(): Promise<void> {
     this.wss.on('connection', (ws: WebSocket) => {
       const connectionId = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-      logger.info('[ws] client connected connectionId=%s', connectionId);
+      log.info('client connected connectionId=%s', connectionId);
 
       ws.on('message', (data: Buffer) => {
         this.handleMessage(ws, data, connectionId).catch(err => {
-          logger.error('[ws] error=%s', (err as Error).message);
+          log.error('error=%s', (err as Error).message);
           this.sendToWs(ws, { type: 'error', error: (err as Error).message });
         });
       });
 
       ws.on('close', () => {
-        logger.info('[ws] client disconnected connectionId=%s', connectionId);
+        log.info('client disconnected connectionId=%s', connectionId);
         const conn = this.connections.get(connectionId);
         if (conn) {
           // 清理 userId 反向索引
@@ -92,7 +93,7 @@ export class WebSocketChannel implements DeliverableChannel {
       });
 
       ws.on('error', (err: Error) => {
-        logger.error('[ws] error=%s', err.message);
+        log.error('error=%s', err.message);
       });
     });
   }
@@ -122,7 +123,7 @@ export class WebSocketChannel implements DeliverableChannel {
     try {
       clientMsg = JSON.parse(data.toString()) as ClientMessage;
     } catch {
-      logger.error('[ws] invalid JSON connectionId=%s', connectionId);
+      log.error('invalid JSON connectionId=%s', connectionId);
       this.sendToWs(ws, { type: 'error', error: 'Invalid JSON format' });
       return;
     }
@@ -132,7 +133,7 @@ export class WebSocketChannel implements DeliverableChannel {
       if (conn && this.abortHandler) {
         this.abortHandler(conn.userId);
         this.sendToWs(ws, { type: 'aborted' });
-        logger.info('[ws] aborted connectionId=%s userId=%s', connectionId, conn.userId);
+        log.info('aborted connectionId=%s userId=%s', connectionId, conn.userId);
       }
       return;
     }

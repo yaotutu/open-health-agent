@@ -1,6 +1,7 @@
 import { QQBotClient, type MessageEvent } from 'pure-qqbot';
 import type { DeliverableChannel, MessageHandler, ChannelMessage, ChannelContext } from './types';
-import { logger } from '../infrastructure/logger';
+import { createLogger } from '../infrastructure/logger';
+const log = createLogger('qq');
 
 export interface QQChannelOptions {
   appId: string;
@@ -55,7 +56,7 @@ export class QQChannel implements DeliverableChannel {
               const base64 = Buffer.from(buffer).toString('base64');
               images.push({ data: base64, mimeType: attachment.content_type });
             } catch (err) {
-              logger.error('[qq] 图片下载失败 url=%s error=%s', attachment.url, (err as Error).message);
+              log.error('image download failed url=%s error=%s', attachment.url, (err as Error).message);
             }
           }
         }
@@ -75,12 +76,12 @@ export class QQChannel implements DeliverableChannel {
     });
 
     await this.client.start();
-    logger.info('[qq] channel started');
+    log.info('channel started');
   }
 
   async stop(): Promise<void> {
     await this.client.stop();
-    logger.info('[qq] channel stopped');
+    log.info('channel stopped');
   }
 
   onMessage(handler: MessageHandler): void {
@@ -104,7 +105,7 @@ export class QQChannel implements DeliverableChannel {
       const result = await this.client.sendPrivateMessageProactive(openid, text);
       return result.success;
     } catch (err) {
-      logger.error('[qq] 主动推送失败 userId=%s openid=%s error=%s', userId, openid, (err as Error).message);
+      log.error('push failed userId=%s openid=%s error=%s', userId, openid, (err as Error).message);
       return false;
     }
   }
