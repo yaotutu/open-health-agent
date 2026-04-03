@@ -19,6 +19,18 @@ export class QQChannel implements DeliverableChannel {
     this.client = new QQBotClient({
       appId: options.appId,
       clientSecret: options.clientSecret,
+      // 自定义 logger：过滤心跳噪音，其余走 pino
+      logger: {
+        info: (msg: string) => {
+          if (msg.includes('Heartbeat')) return;
+          log.info('gateway %s', msg);
+        },
+        error: (msg: string) => log.error('gateway %s', msg),
+        debug: (msg: string) => {
+          if (msg.includes('Heartbeat')) return;
+          log.debug('gateway %s', msg);
+        },
+      },
     });
   }
 
