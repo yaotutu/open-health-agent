@@ -3,7 +3,9 @@ import { getModel, streamSimple, createAssistantMessageEventStream } from '@mari
 import type { Context, AssistantMessageEventStream, UserMessage, AssistantMessage } from '@mariozechner/pi-ai';
 import { config } from '../config';
 import type { Store, Message } from '../store';
-import { logger } from '../infrastructure/logger';
+import { createLogger } from '../infrastructure/logger';
+const log = createLogger('agent');
+const llmLog = createLogger('llm');
 import { assembleSystemPrompt } from '../prompts/assembler';
 import { createCommonTools } from './tools';
 import type { AgentTool } from '@mariozechner/pi-agent-core';
@@ -76,10 +78,7 @@ const createLoggingStreamFn = () => {
     };
 
     // 完整记录请求报文
-    logger.info(
-      { module: 'llm', payload: requestPayload },
-      '[llm] request'
-    );
+    llmLog.raw.debug({ payload: requestPayload }, 'request');
 
     const originalStream = streamSimple(model as any, context, options as any);
     const loggedStream = createAssistantMessageEventStream();
@@ -96,14 +95,11 @@ const createLoggingStreamFn = () => {
         loggedStream.end();
         if (finalMessage) {
           // 完整记录响应报文（包含所有 content blocks：text、thinking、toolCall 等）
-          logger.info(
-            { module: 'llm', payload: finalMessage },
-            '[llm] response'
-          );
+          llmLog.raw.debug({ payload: finalMessage }, 'response');
         }
       } catch (err) {
         loggedStream.end();
-        logger.error({ module: 'llm', error: (err as Error).message }, '[llm] error=%s', (err as Error).message);
+        llmLog.error('error=%s', (err as Error).message);
       }
     })();
 
@@ -142,7 +138,7 @@ export const createHealthAgent = async (options: CreateAgentOptions) => {
   // 包含静态模板（角色、能力、规则）和动态上下文（档案、最近记录、活跃症状、记忆等）
   const systemPrompt = await assembleSystemPrompt(store, userId);
 
-  logger.info('[agent] created provider=%s model=%s tools=%d', config.llm.provider, config.llm.model, tools.length);
+  log.info('created provider=%s model=%s tools=%d', config.llm.provider, config.llm.model, tools.length);
 
   const agent = new Agent({
     initialState: {

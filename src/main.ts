@@ -7,7 +7,9 @@ import { BotManager } from './bot';
 import { createApp } from './server';
 import { CronService } from './cron/service';
 import { startHeartbeatScheduler } from './heartbeat';
-import { logger, dbLogWriter } from './infrastructure/logger';
+import { createLogger, dbLogWriter } from './infrastructure/logger';
+
+const log = createLogger('app');
 
 /**
  * 将 Node.js http 请求桥接到 Hono 处理
@@ -62,7 +64,7 @@ function bridgeToHono(honoFetch: (req: Request) => Response | Promise<Response>)
       }
       res.end();
     } catch (err) {
-      logger.error('[app] request bridge error=%s', (err as Error).message);
+      log.error('request bridge error=%s', (err as Error).message);
       if (!res.headersSent) {
         res.statusCode = 500;
         res.end('Internal Server Error');
@@ -72,13 +74,13 @@ function bridgeToHono(honoFetch: (req: Request) => Response | Promise<Response>)
 }
 
 async function main() {
-  logger.info('[app] starting health advisor agent...');
-  if (config.testMode) logger.info('[app] TEST_MODE enabled: no history, no summaries');
+  log.info('starting health advisor agent...');
+  if (config.testMode) log.info('TEST_MODE enabled: no history, no summaries');
 
   // 1. 初始化存储
   const store = new Store(config.dbPath);
   dbLogWriter.init(store.logs);
-  logger.info('[app] database initialized path=%s', config.dbPath);
+  log.info('database initialized path=%s', config.dbPath);
 
   // 2. 定时任务服务（先创建，因为 BotManager 需要注入 cronService）
   // 任务定义存储在 SQLite，调度由 node-cron 负责
@@ -88,14 +90,14 @@ async function main() {
       const userId = job.userId;
       if (!userId) return;
 
-      logger.info('[cron] executing id=%s name=%s userId=%s', job.id, job.name, userId);
+      log.info('cron executing id=%s name=%s userId=%s', job.id, job.name, userId);
       cronService.setCronContext(true);
       try {
         // 通过 BotManager 获取/创建 Bot，创建临时 Agent 处理
         const bot = await botManager.getOrCreateBot(userId);
         await bot.promptAndDeliver(job.message, job.deliver);
       } catch (err) {
-        logger.error('[cron] execute failed id=%s error=%s', job.id, (err as Error).message);
+        log.error('cron execute failed id=%s error=%s', job.id, (err as Error).message);
       } finally {
         cronService.setCronContext(false);
       }
@@ -127,9 +129,9 @@ async function main() {
 
   // 8. 监听端口
   server.listen(config.port, () => {
-    logger.info('[app] server started port=%d', config.port);
-    logger.info('[app] websocket ws://localhost:%d/ws', config.port);
-    logger.info('[app] login page http://localhost:%d', config.port);
+    log.info('server started port=%d', config.port);
+    log.info('websocket ws://localhost:%d/ws', config.port);
+    log.info('login page http://localhost:%d', config.port);
   });
 
   // 9. 启动心跳调度器
@@ -149,10 +151,10 @@ async function main() {
 
   // 10. 优雅关闭
   const shutdown = async (signal: string) => {
-    logger.info('[app] received %s, shutting down...', signal);
+    log.info('received %s, shutting down...', signal);
 
     const timeout = setTimeout(() => {
-      logger.warn('[app] shutdown timeout (%dms), forcing exit', config.shutdownTimeout);
+      log.warn('shutdown timeout (%dms), forcing exit', config.shutdownTimeout);
       process.exit(1);
     }, config.shutdownTimeout);
 
@@ -168,10 +170,10 @@ async function main() {
 
       store.close();
       clearTimeout(timeout);
-      logger.info('[app] shutdown complete');
+      log.info('shutdown complete');
       process.exit(0);
     } catch (err) {
-      logger.error('[app] shutdown error=%s', (err as Error).message);
+      log.error('shutdown error=%s', (err as Error).message);
       process.exit(1);
     }
   };
@@ -181,6 +183,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  logger.error('[app] fatal error=%s', err.message);
+  log.error('fatal error=%s', err.message);
   process.exit(1);
 });
