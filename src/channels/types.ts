@@ -72,6 +72,8 @@ export interface ChannelContext {
   send(text: string): Promise<void>;
   /** 流式发送文本增量（仅 capabilities.streaming=true 的通道实现） */
   sendStream?(text: string, done: boolean): Promise<void>;
+  /** 通知通道开始处理（如"正在输入..."指示器） */
+  sendTyping?(): Promise<void>;
   /** 通道能力声明 */
   capabilities?: ChannelCapabilities;
 }

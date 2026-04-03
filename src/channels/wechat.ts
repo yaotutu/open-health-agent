@@ -198,12 +198,19 @@ export class WeChatChannel implements DeliverableChannel {
 
     log.info('dispatching message msgId=%s textLen=%d images=%d', channelMsg.id, text.length, images.length);
 
-    // 构造 ChannelContext，微信不支持流式，只实现 send()
+    // 构造 ChannelContext，微信不支持流式，实现 send() + sendTyping()
     const context: ChannelContext = {
       send: async (text: string) => {
         log.info('sending reply to=%s textLen=%d', fromUserId.slice(0, 20), text.length);
         await this.client.sendText(fromUserId, text, msg.context_token || '');
         log.info('reply sent msgId=%s', channelMsg.id);
+      },
+      sendTyping: async () => {
+        try {
+          await this.client.sendTyping(fromUserId, msg.context_token || '');
+        } catch (err) {
+          log.error('sendTyping failed error=%s', (err as Error).message);
+        }
       },
     };
 

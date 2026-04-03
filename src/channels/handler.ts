@@ -103,7 +103,10 @@ export const createMessageHandler = (options: CreateMessageHandlerOptions) => {
         const updatedPrompt = await assembleSystemPrompt(store, userId);
         agent.setSystemPrompt(updatedPrompt);
 
-        // 8. 调用 Agent
+        // 8. 通知通道开始处理（如微信"正在输入..."指示器）
+        context.sendTyping?.().catch(() => {});
+
+        // 9. 调用 Agent
         const timedContent = withTimeContext(content);
         if (images && images.length > 0) {
           await agent.prompt(timedContent, images);
@@ -111,7 +114,7 @@ export const createMessageHandler = (options: CreateMessageHandlerOptions) => {
           await agent.prompt(timedContent);
         }
 
-        // 9. 提取响应并保存
+        // 10. 提取响应并保存
         const assistantText = assistantMessage ? extractAssistantText(assistantMessage) : '';
         if (assistantText) {
           await store.messages.appendMessage(userId, {
