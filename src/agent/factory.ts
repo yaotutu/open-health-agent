@@ -80,6 +80,12 @@ const createLoggingStreamFn = () => {
     // 完整记录请求报文
     llmLog.raw.debug({ payload: requestPayload }, 'request');
 
+    // 请求摘要（info 级别，方便排查）
+    const msgCount = context.messages?.length ?? 0;
+    const toolNames = (context.tools?.map((t: any) => t.name ?? t) ?? []) as string[];
+    llmLog.info('request model=%s messages=%d tools=%d [%s]',
+      String(model), msgCount, toolNames.length, toolNames.join(', '));
+
     const originalStream = streamSimple(model as any, context, options as any);
     const loggedStream = createAssistantMessageEventStream();
     let finalMessage: unknown = null;
@@ -96,6 +102,18 @@ const createLoggingStreamFn = () => {
         if (finalMessage) {
           // 完整记录响应报文（包含所有 content blocks：text、thinking、toolCall 等）
           llmLog.raw.debug({ payload: finalMessage }, 'response');
+
+          // 响应摘要：提取 toolCalls 和 text 概要
+          const msg = finalMessage as any;
+          const toolCalls = msg?.content?.filter?.((c: any) => c.type === 'toolCall') ?? [];
+          const textBlocks = msg?.content?.filter?.((c: any) => c.type === 'text') ?? [];
+          if (toolCalls.length > 0) {
+            const callNames = toolCalls.map((c: any) => c.toolName ?? c.name ?? 'unknown').join(', ');
+            llmLog.info('response toolCalls=%d [%s]', toolCalls.length, callNames);
+          } else if (textBlocks.length > 0) {
+            const preview = String(textBlocks[0]?.text ?? '').slice(0, 80);
+            llmLog.info('response text=%s', preview);
+          }
         }
       } catch (err) {
         loggedStream.end();

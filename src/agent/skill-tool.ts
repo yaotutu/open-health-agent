@@ -13,6 +13,9 @@ import { join, dirname } from 'path';
 import { Type } from '@sinclair/typebox';
 import type { AgentTool } from '@mariozechner/pi-agent-core';
 import type { Store } from '../store';
+import { createLogger } from '../infrastructure/logger';
+
+const log = createLogger('agent');
 import type { CronService } from '../cron/service';
 import { getSkillTools } from './tools';
 
@@ -120,14 +123,18 @@ export const createSkillTool = (
 
       // 动态注入完整工具集（去重：按工具名检查）
       const skillTools = getSkillTools(skill, store, userId, channel, cronService);
+      const newTools: string[] = [];
       if (skillTools && skillTools.length > 0) {
         for (const tool of skillTools) {
           if (!injectedToolNames.has(tool.name)) {
             injectedToolNames.add(tool.name);
             toolsArray.push(tool);
+            newTools.push(tool.name);
           }
         }
       }
+      log.debug('load_skill skill=%s newTools=%d totalTools=%d injected=%s',
+        skill, newTools.length, toolsArray.length, newTools.join(','));
 
       return {
         content: [{ type: 'text', text: prompt }],
