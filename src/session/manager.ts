@@ -2,6 +2,9 @@ import { getModel, streamSimple } from '@mariozechner/pi-ai';
 import type { Context } from '@mariozechner/pi-ai';
 import type { Message } from '../store';
 import { config } from '../config';
+import { createLogger } from '../infrastructure/logger';
+
+const log = createLogger('session');
 
 /**
  * 使用 LLM 生成对话摘要
@@ -35,6 +38,7 @@ export async function generateConversationSummary(messages: Message[]): Promise<
   };
 
   // 使用 streamSimple 获取 LLM 响应
+  log.debug('generating summary messages=%d', recent.length);
   const stream = streamSimple(model, context);
   let summary = '';
   for await (const event of stream) {
@@ -45,5 +49,6 @@ export async function generateConversationSummary(messages: Message[]): Promise<
         .join('');
     }
   }
+  log.debug('summary generated length=%d', summary.length);
   return summary || '对话摘要生成失败';
 }

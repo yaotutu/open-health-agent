@@ -2,7 +2,9 @@ import { Hono } from 'hono';
 import { serveStatic } from 'hono/bun';
 import { getChannelFactories } from '../channels/registry';
 import type { BotManager } from '../bot/bot-manager';
-import { logger } from '../infrastructure/logger';
+import { createLogger } from '../infrastructure/logger';
+
+const log = createLogger('api');
 
 /**
  * 创建 API 路由
@@ -48,12 +50,12 @@ export function createApiRoutes(botManager: BotManager): Hono {
       // 执行绑定
       const userId = await botManager.bind(channelType, credentials);
 
-      logger.info('[api] bind success userId=%s channel=%s', userId, channelType);
+      log.info('bind success userId=%s channel=%s', userId, channelType);
 
       return c.json({ success: true, userId });
     } catch (err) {
       const message = (err as Error).message;
-      logger.error('[api] bind failed error=%s', message);
+      log.error('bind failed error=%s', message);
       return c.json({ error: message }, 400);
     }
   });
@@ -82,7 +84,7 @@ export function createApiRoutes(botManager: BotManager): Hono {
       return c.json({ success: true });
     } catch (err) {
       const message = (err as Error).message;
-      logger.error('[api] unbind failed userId=%s error=%s', userId, message);
+      log.error('unbind failed userId=%s error=%s', userId, message);
       return c.json({ error: message }, 400);
     }
   });

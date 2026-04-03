@@ -1,6 +1,8 @@
 import type { Store } from '../store';
 import { runHeartbeat, type HeartbeatResult } from './runner';
-import { logger } from '../infrastructure/logger';
+import { createLogger } from '../infrastructure/logger';
+
+const log = createLogger('heartbeat');
 
 /**
  * 心跳调度器配置选项
@@ -37,33 +39,33 @@ export function startHeartbeatScheduler(options: HeartbeatOptions): { stop: () =
    */
   const tick = async () => {
     try {
-      logger.info('[heartbeat] tick');
+      log.debug('tick');
       const userIds = getUserIds();
       const results = await runHeartbeat(store, userIds);
       // 逐个发送关怀消息
       for (const result of results) {
         try {
           await sendToUser(result.userId, result.message);
-          logger.info('[heartbeat] sent userId=%s', result.userId);
+          log.info('sent userId=%s', result.userId);
         } catch (err) {
-          logger.error('[heartbeat] send failed userId=%s error=%s', result.userId, (err as Error).message);
+          log.error('send failed userId=%s error=%s', result.userId, (err as Error).message);
         }
       }
     } catch (err) {
-      logger.error('[heartbeat] error=%s', (err as Error).message);
+      log.error('error=%s', (err as Error).message);
     }
   };
 
   // 使用 setInterval 定期执行心跳检查
   const timer = setInterval(tick, intervalMs);
 
-  logger.info('[heartbeat] started interval=%dms', intervalMs);
+  log.info('started interval=%dms', intervalMs);
 
   return {
     /** 停止心跳调度器，清除定时器 */
     stop: () => {
       clearInterval(timer);
-      logger.info('[heartbeat] stopped');
+      log.info('stopped');
     },
   };
 }

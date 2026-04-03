@@ -9,7 +9,9 @@
 import cron, { type ScheduledTask } from 'node-cron';
 import type { CronJobStore } from '../store/cron-store';
 import type { CronJobRecord } from '../store/schema';
-import { logger } from '../infrastructure/logger';
+import { createLogger } from '../infrastructure/logger';
+
+const log = createLogger('cron');
 
 /**
  * CronService 配置选项
@@ -60,7 +62,7 @@ export class CronService {
     for (const job of jobs) {
       this.scheduleJob(job);
     }
-    logger.info('[cron] started jobs=%d', jobs.length);
+    log.info('started jobs=%d', jobs.length);
   }
 
   /**
@@ -73,7 +75,7 @@ export class CronService {
       this.cancelScheduler(scheduler);
     }
     this.schedulers.clear();
-    logger.info('[cron] stopped');
+    log.info('stopped');
   }
 
   /**
@@ -112,7 +114,7 @@ export class CronService {
 
     this.scheduleJob(record);
 
-    logger.info('[cron] job added id=%s name=%s kind=%s', id, name, schedule.kind);
+    log.info('job added id=%s name=%s kind=%s', id, name, schedule.kind);
     return record;
   }
 
@@ -124,7 +126,7 @@ export class CronService {
     this.cancelScheduler(jobId);
     const removed = await this.store.remove(jobId);
     if (removed) {
-      logger.info('[cron] job removed id=%s', jobId);
+      log.info('job removed id=%s', jobId);
     }
     return removed;
   }
@@ -202,14 +204,14 @@ export class CronService {
    * 调用 onJob 回调，更新执行状态，处理一次性任务清理
    */
   private async executeJob(job: CronJobRecord): Promise<void> {
-    logger.info('[cron] executing id=%s name=%s userId=%s', job.id, job.name, job.userId);
+    log.info('executing id=%s name=%s userId=%s', job.id, job.name, job.userId);
 
     try {
       await this.onJob(job);
       await this.store.updateStatus(job.id, 'ok');
     } catch (err) {
       await this.store.updateStatus(job.id, 'error', (err as Error).message);
-      logger.error('[cron] execute failed id=%s error=%s', job.id, (err as Error).message);
+      log.error('execute failed id=%s error=%s', job.id, (err as Error).message);
     }
 
     // 一次性任务执行后清理
@@ -217,7 +219,7 @@ export class CronService {
       this.cancelScheduler(job.id);
       if (job.deleteAfterRun) {
         await this.store.remove(job.id);
-        logger.info('[cron] one-shot job deleted id=%s', job.id);
+        log.info('one-shot job deleted id=%s', job.id);
       } else {
         await this.store.disable(job.id);
       }

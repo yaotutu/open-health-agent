@@ -4,7 +4,9 @@ import { Type } from '@sinclair/typebox';
 import type { Store } from '../store';
 import { config } from '../config';
 import { assembleSystemPrompt } from '../prompts/assembler';
-import { logger } from '../infrastructure/logger';
+import { createLogger } from '../infrastructure/logger';
+
+const log = createLogger('heartbeat');
 
 /**
  * 心跳检查结果
@@ -142,15 +144,15 @@ export async function runHeartbeat(store: Store, userIds: string[]): Promise<Hea
       const message = await checkUser(store, userId, tasks);
       if (message) {
         results.push({ userId, message });
-        logger.info('[heartbeat] run userId=%s messageLen=%d', userId, message.length);
+        log.info('run userId=%s messageLen=%d', userId, message.length);
       } else {
-        logger.debug('[heartbeat] skip userId=%s', userId);
+        log.debug('skip userId=%s', userId);
       }
     } catch (err) {
-      logger.error('[heartbeat] check failed userId=%s error=%s', userId, (err as Error).message);
+      log.error('check failed userId=%s error=%s', userId, (err as Error).message);
     }
   }
 
-  logger.info('[heartbeat] checked users=%d alerts=%d', userIds.length, results.length);
+  log.info('checked users=%d alerts=%d', userIds.length, results.length);
   return results;
 }
