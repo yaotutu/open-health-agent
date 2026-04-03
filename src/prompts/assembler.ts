@@ -1,5 +1,5 @@
 import { readFileSync, readdirSync } from 'fs';
-import { join, dirname } from 'path';
+import { join } from 'path';
 import type { Store } from '../store';
 import type { UserProfile, MemoryRecord, ConversationSummary, ChronicCondition } from '../store/schema';
 import { safeJsonParse } from '../store/json-utils';
@@ -11,6 +11,7 @@ import { formatSection as formatSleepSection } from '../features/sleep/store';
 import { formatSection as formatWaterSection } from '../features/water/store';
 import { formatSection as formatMedicationSection } from '../features/medication/store';
 import { formatSection as formatObservationSection } from '../features/observation/store';
+import { readSkillCatalog } from '../agent/skill-tool';
 
 /**
  * prompts 目录的根路径
@@ -39,32 +40,11 @@ function readPromptDir(subDir: string): string {
 }
 
 /**
- * 扫描所有功能域的提示词文件
- * 从 features 目录下每个子目录的 prompt.md 收集各功能的提示词
- * 替代原有的 readPromptDir('capabilities') 调用
+ * readFeaturePrompts 已移除
+ * 功能提示词改为按需加载（skill 机制），由 load_skill 工具实现
+ * 这里只生成功能目录表，替代原来的全量注入
+ * 目录表生成逻辑在 skill-tool.ts 的 readSkillCatalog() 中
  */
-function readFeaturePrompts(): string {
-  const featuresDir = join(dirname(PROMPTS_DIR), 'features');
-  try {
-    const dirs = readdirSync(featuresDir, { withFileTypes: true })
-      .filter(d => d.isDirectory())
-      .map(d => d.name)
-      .sort();
-
-    const parts: string[] = [];
-    for (const dir of dirs) {
-      try {
-        const content = readFileSync(join(featuresDir, dir, 'prompt.md'), 'utf-8');
-        if (content.trim()) parts.push(content);
-      } catch {
-        // 功能目录无 prompt.md，跳过
-      }
-    }
-    return parts.join('\n\n');
-  } catch {
-    return '';
-  }
-}
 
 /**
  * 格式化用户档案为可注入的文本
@@ -207,8 +187,9 @@ export async function assembleSystemPrompt(store: Store, userId: string): Promis
 
   // 1. 静态部分（从文件读取，支持热更新，修改 md 文件后下次调用自动生效）
   parts.push(readPromptDir('core'));
-  // 从 features/*/prompt.md 扫描各功能域的提示词，替代原有的 capabilities 目录
-  parts.push(readFeaturePrompts());
+  // 注入功能目录表（替代原来的全量加载 features/*/prompt.md）
+  // LLM 通过 load_skill 工具按需加载具体功能的详细说明
+  parts.push(readSkillCatalog());
   parts.push(readPromptDir('rules'));
 
   // 2. 动态上下文（每次从数据库查询最新数据）
