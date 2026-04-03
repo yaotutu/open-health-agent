@@ -5,6 +5,7 @@
 import { Type } from '@sinclair/typebox';
 import type { AgentTool } from '@mariozechner/pi-agent-core';
 import type { HeartbeatTaskStore } from './store';
+import { createSimpleQueryTool } from '../../agent/tool-factory';
 
 // ==================== 工具参数 Schema ====================
 
@@ -104,3 +105,14 @@ export const createHeartbeatTools = (store: HeartbeatTaskStore, userId: string) 
 
   return { addHeartbeatTask, listHeartbeatTasks, removeHeartbeatTask };
 };
+
+/**
+ * 创建心跳任务极简查询工具（无参数，返回已启用的任务列表）
+ * 用于常驻上下文场景，让 LLM 无需传参即可快速获取心跳任务
+ */
+export const createHeartbeatSimpleQuery = (store: HeartbeatTaskStore, userId: string) =>
+  createSimpleQueryTool({
+    name: 'list_heartbeat_tasks',
+    description: '获取心跳任务列表',
+    queryFn: () => Promise.resolve(store.getEnabledTasks(userId)),
+  });

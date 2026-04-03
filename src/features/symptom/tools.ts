@@ -8,7 +8,7 @@
 import { Type } from '@sinclair/typebox';
 import type { AgentTool } from '@mariozechner/pi-agent-core';
 import type { SymptomStore } from './store';
-import { createQueryTool } from '../../agent/tool-factory';
+import { createQueryTool, createSimpleQueryTool } from '../../agent/tool-factory';
 
 /**
  * 记录症状的参数 Schema
@@ -100,3 +100,14 @@ export const createSymptomTools = (store: SymptomStore, userId: string) => {
 
   return { recordSymptom, querySymptomRecords, resolveSymptom };
 };
+
+/**
+ * 创建症状记录极简查询工具（无参数，返回最近记录）
+ * 用于常驻上下文场景，让 LLM 无需传参即可快速获取最近的症状记录
+ */
+export const createSymptomSimpleQuery = (store: SymptomStore, userId: string) =>
+  createSimpleQueryTool({
+    name: 'get_recent_symptoms',
+    description: '获取最近7天症状记录',
+    queryFn: () => store.query(userId, { limit: 10 }),
+  });

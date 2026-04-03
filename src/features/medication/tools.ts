@@ -7,6 +7,7 @@
 import { Type } from '@sinclair/typebox';
 import type { AgentTool } from '@mariozechner/pi-agent-core';
 import type { MedicationStore } from './store';
+import { createSimpleQueryTool } from '../../agent/tool-factory';
 
 /**
  * 记录用药的参数 Schema
@@ -121,3 +122,14 @@ export const createMedicationTools = (store: MedicationStore, userId: string) =>
 
   return { recordMedication, queryMedicationRecords, stopMedication };
 };
+
+/**
+ * 创建用药记录极简查询工具（无参数，返回最近正在使用的用药记录）
+ * 用于常驻上下文场景，让 LLM 无需传参即可快速获取当前用药情况
+ */
+export const createMedicationSimpleQuery = (store: MedicationStore, userId: string) =>
+  createSimpleQueryTool({
+    name: 'get_recent_medications',
+    description: '获取最近正在使用的用药记录',
+    queryFn: () => store.query(userId, { activeOnly: true, limit: 10 }),
+  });

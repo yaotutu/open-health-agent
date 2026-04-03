@@ -5,7 +5,7 @@
 import { Type } from '@sinclair/typebox';
 import type { AgentTool } from '@mariozechner/pi-agent-core';
 import type { DietStore } from './store';
-import { createQueryTool } from '../../agent/tool-factory';
+import { createQueryTool, createSimpleQueryTool } from '../../agent/tool-factory';
 
 /**
  * 记录饮食的参数 Schema
@@ -71,3 +71,14 @@ export const createDietTools = (store: DietStore, userId: string) => {
 
   return { recordDiet, queryDietRecords };
 };
+
+/**
+ * 创建饮食记录极简查询工具（无参数，返回最近记录）
+ * 用于常驻上下文场景，让 LLM 无需传参即可快速获取最近的饮食记录
+ */
+export const createDietSimpleQuery = (store: DietStore, userId: string) =>
+  createSimpleQueryTool({
+    name: 'get_recent_diet',
+    description: '获取最近7天饮食记录',
+    queryFn: () => store.query(userId, { limit: 10 }),
+  });

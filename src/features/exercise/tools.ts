@@ -5,7 +5,7 @@
 import { Type } from '@sinclair/typebox';
 import type { AgentTool } from '@mariozechner/pi-agent-core';
 import type { ExerciseStore } from './store';
-import { createQueryTool } from '../../agent/tool-factory';
+import { createQueryTool, createSimpleQueryTool } from '../../agent/tool-factory';
 
 /**
  * 记录运动的参数 Schema
@@ -68,3 +68,14 @@ export const createExerciseTools = (store: ExerciseStore, userId: string) => {
 
   return { recordExercise, queryExerciseRecords };
 };
+
+/**
+ * 创建运动记录极简查询工具（无参数，返回最近记录）
+ * 用于常驻上下文场景，让 LLM 无需传参即可快速获取最近的运动记录
+ */
+export const createExerciseSimpleQuery = (store: ExerciseStore, userId: string) =>
+  createSimpleQueryTool({
+    name: 'get_recent_exercise',
+    description: '获取最近7天运动记录',
+    queryFn: () => store.query(userId, { limit: 10 }),
+  });

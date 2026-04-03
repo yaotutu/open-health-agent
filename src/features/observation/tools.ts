@@ -7,6 +7,7 @@ import type { AgentTool } from '@mariozechner/pi-agent-core';
 import type { ObservationStore } from './store';
 import { createQueryTool } from '../../agent/tool-factory';
 import { safeJsonParse } from '../../store/json-utils';
+import { createSimpleQueryTool } from '../../agent/tool-factory';
 
 /**
  * 记录健康观察的参数 Schema
@@ -94,3 +95,14 @@ export const createObservationTools = (store: ObservationStore, userId: string) 
 
   return { recordObservation, queryObservations };
 };
+
+/**
+ * 创建健康观察极简查询工具（无参数，返回最近记录）
+ * 用于常驻上下文场景，让 LLM 无需传参即可快速获取最近的健康观察
+ */
+export const createObservationSimpleQuery = (store: ObservationStore, userId: string) =>
+  createSimpleQueryTool({
+    name: 'get_recent_observations',
+    description: '获取最近7天健康观察',
+    queryFn: () => store.query(userId, { limit: 10 }),
+  });

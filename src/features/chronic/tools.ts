@@ -8,6 +8,7 @@ import { Type } from '@sinclair/typebox';
 import type { AgentTool } from '@mariozechner/pi-agent-core';
 import type { ChronicStore } from './store';
 import { safeJsonParse } from '../../store/json-utils';
+import { createSimpleQueryTool } from '../../agent/tool-factory';
 
 /**
  * 记录慢性病的参数 Schema
@@ -160,3 +161,14 @@ export const createChronicTools = (store: ChronicStore, userId: string) => {
 
   return { recordChronicCondition, updateChronicCondition, queryChronicConditions, deactivateChronicCondition };
 };
+
+/**
+ * 创建慢性病极简查询工具（无参数，返回活跃的慢性病追踪）
+ * 用于常驻上下文场景，让 LLM 无需传参即可快速获取当前慢性病情况
+ */
+export const createChronicSimpleQuery = (store: ChronicStore, userId: string) =>
+  createSimpleQueryTool({
+    name: 'get_recent_chronic',
+    description: '获取活跃的慢性病追踪',
+    queryFn: () => store.query(userId, { activeOnly: true }),
+  });

@@ -6,6 +6,7 @@
 import { Type } from '@sinclair/typebox';
 import type { AgentTool } from '@mariozechner/pi-agent-core';
 import type { CronService } from './service';
+import { createSimpleQueryTool } from '../agent/tool-factory';
 
 // ==================== 工具参数 Schema ====================
 
@@ -228,3 +229,14 @@ export const createCronTools = (
 
   return { scheduleCron, listCronJobs, removeCronJob };
 };
+
+/**
+ * 创建定时任务极简查询工具（无参数，返回当前用户的定时任务列表）
+ * 用于常驻上下文场景，让 LLM 无需传参即可快速获取定时任务
+ */
+export const createCronSimpleQuery = (cronService: any, userId: string) =>
+  createSimpleQueryTool({
+    name: 'list_cron_jobs',
+    description: '获取定时任务列表',
+    queryFn: () => cronService.listJobsByUser(userId),
+  });
