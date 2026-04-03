@@ -93,7 +93,7 @@ export class BotManager {
    * @param credentials 凭据
    * @returns 绑定后的 userId
    */
-  async bind(channelType: string, credentials: Record<string, string>): Promise<string> {
+  async bind(channelType: string, credentials: Record<string, string>, options?: { force?: boolean }): Promise<string> {
     const factory = getChannelFactory(channelType);
     if (!factory) {
       throw new Error(`不支持的渠道类型: ${channelType}`);
@@ -104,14 +104,27 @@ export class BotManager {
     }
 
     // 根据 channelType 和凭据生成 userId
-    // QQ 用 appId 作为标识
     const channelId = this.extractChannelId(channelType, credentials);
     const userId = `${channelType}:${channelId}`;
 
-    // 检查是否已绑定
+    log.info('bind channelType=%s channelId=%s userId=%s force=%s', channelType, channelId, userId, !!options?.force);
+
+    // 检查是否已绑定（精确匹配 userId）
     const existing = await this.bindingStore.getActiveByUserId(userId);
     if (existing) {
+      // 微信渠道：已有绑定时抛特殊错误码，让前端弹确认框
+      // 用户确认后通过 force=true 重新绑定
+      if (channelType === 'wechat' && !options?.force) {
+        log.info('wechat already bound userId=%s, waiting for user confirmation', userId);
+        throw new Error('WECHAT_REBIND_CONFIRM');
+      }
       throw new Error(`该 ${factory.name} 已绑定，请先解绑`);
+    }
+
+    // 微信渠道 + force 模式：清掉所有旧微信绑定后重新创建
+    if (channelType === 'wechat' && options?.force) {
+      log.info('wechat force bind: cleaning up old wechat bindings userId=%s', userId);
+      await this.unbindAllByChannelType('wechat');
     }
 
     // 写入绑定记录
@@ -130,6 +143,39 @@ export class BotManager {
 
     // 启动 Bot 实例
     await this.createAndStart(userId, channelType, credentials);
+
+    return userId;
+  }
+
+  /**
+   * 强制重新绑定微信渠道
+   * 用户在确认框中点击"确认重新绑定"后调用
+   * 不删除旧绑定记录，而是更新凭据 + 重启 Bot（因为 userId 不变，只是 botToken 变了）
+   * @param credentials 新的微信凭据
+   * @returns 绑定后的 userId
+   */
+  async bindForce(credentials: Record<string, string>): Promise<string> {
+    const channelId = this.extractChannelId('wechat', credentials);
+    const userId = `wechat:${channelId}`;
+
+    log.info('force rebind: updating credentials and restarting bot userId=%s', userId);
+
+    // 1. 停掉旧 Bot（保存游标后停止）
+    const oldBot = this.bots.get(userId);
+    if (oldBot) {
+      await this.saveWeChatCursor(userId, oldBot);
+      await oldBot.stop();
+      this.bots.delete(userId);
+      log.info('force rebind: old bot stopped userId=%s', userId);
+    }
+
+    // 2. 更新绑定记录中的凭据（新的 botToken、accountId 等）
+    await this.bindingStore.updateCredentials(userId, JSON.stringify(credentials));
+    log.info('force rebind: credentials updated userId=%s', userId);
+
+    // 3. 用新凭据创建并启动新 Bot
+    await this.createAndStart(userId, 'wechat', credentials);
+    log.info('force rebind: new bot started userId=%s', userId);
 
     return userId;
   }
@@ -209,6 +255,28 @@ export class BotManager {
   }
 
   /**
+   * 停用指定渠道类型的所有活跃绑定
+   * 用于微信等渠道：每次扫码生成不同的 session，新绑定时清理旧绑定
+   * @param channelType 渠道类型
+   */
+  private async unbindAllByChannelType(channelType: string): Promise<void> {
+    const allBindings = await this.bindingStore.listActive();
+    const targets = allBindings.filter(b => b.channelType === channelType);
+
+    if (targets.length === 0) {
+      log.info('no old %s bindings to clean', channelType);
+      return;
+    }
+
+    log.info('cleaning %d old %s bindings: %s', targets.length, channelType, targets.map(b => b.userId).join(', '));
+    for (const binding of targets) {
+      log.info('unbinding old %s binding userId=%s', channelType, binding.userId);
+      await this.unbind(binding.userId);
+    }
+    log.info('cleaned %d old %s bindings done', targets.length, channelType);
+  }
+
+  /**
    * 保存微信渠道的消息同步游标到数据库
    * 在停止 Bot 前调用，确保重启后能从上次位置继续拉取消息
    * @param userId 用户ID
@@ -240,10 +308,14 @@ export class BotManager {
     switch (channelType) {
       case 'qq':
         return credentials.appId;
-      case 'wechat':
-        return credentials.accountId || credentials.botToken.slice(0, 16);
-      // 未来渠道在此添加：
-      // case 'telegram': return credentials.botToken;
+      case 'wechat': {
+        // 优先用 ilinkUserId（人的稳定 ID，如 o9cq800kum_xxx@im.wechat）
+        // 兼容旧数据：没有 ilinkUserId 时降级到 accountId
+        const channelId = credentials.ilinkUserId || credentials.accountId || credentials.botToken.slice(0, 16);
+        const source = credentials.ilinkUserId ? 'ilinkUserId' : credentials.accountId ? 'accountId(fallback)' : 'botToken(fallback)';
+        log.info('wechat channelId=%s source=%s', channelId, source);
+        return channelId;
+      }
       default:
         throw new Error(`未知的渠道类型: ${channelType}`);
     }

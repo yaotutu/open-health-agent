@@ -31,7 +31,7 @@ export class WeChatChannel implements DeliverableChannel {
   private client: ILinkClient;
   private messageHandler?: MessageHandler;
   private abortController?: AbortController;
-  /** 从入站消息中缓存的微信用户 ID（iLink 用户 ID），用于主动推送 */
+  /** 从入站消息中缓存的微信用户 ID（如 o9cq800kum_xxx@im.wechat），用于主动推送 */
   private cachedWechatUserId: string | null = null;
   /** 缓存最后一条消息的 contextToken，用于主动推送 */
   private cachedContextToken: string | null = null;
@@ -44,19 +44,21 @@ export class WeChatChannel implements DeliverableChannel {
     // 恢复上次的同步游标，避免重启后重复处理消息
     if (options.cursor) {
       this.client.cursor = options.cursor;
+      log.info('cursor restored cursor=%s...', options.cursor.slice(0, 20));
     }
+    log.info('channel created baseUrl=%s accountId=%s', options.baseUrl, options.accountId || '(none)');
   }
 
   async start(): Promise<void> {
     this.abortController = new AbortController();
     // 启动消息轮询循环（后台运行，不阻塞 start()）
     this.pollLoop();
-    log.info('channel started');
+    log.info('channel started polling');
   }
 
   async stop(): Promise<void> {
     this.abortController?.abort();
-    log.info('channel stopped');
+    log.info('channel stopped cursor=%s', this.client.cursor.slice(0, 20));
   }
 
   onMessage(handler: MessageHandler): void {
@@ -71,12 +73,16 @@ export class WeChatChannel implements DeliverableChannel {
    * @returns 是否成功送达
    */
   async sendToUser(userId: string, text: string): Promise<boolean> {
-    if (!this.cachedWechatUserId) return false;
+    if (!this.cachedWechatUserId) {
+      log.warn('push skipped: no cached wechat userId');
+      return false;
+    }
 
     try {
-      // 主动推送使用缓存的 contextToken（可能已过期，但这是目前唯一的方式）
       const contextToken = this.cachedContextToken || '';
+      log.info('pushing to userId=%s wechatUserId=%s textLen=%d', userId, this.cachedWechatUserId, text.length);
       await this.client.sendTextChunked(this.cachedWechatUserId, text, contextToken);
+      log.info('push sent userId=%s', userId);
       return true;
     } catch (err) {
       log.error('push failed userId=%s error=%s', userId, (err as Error).message);
@@ -98,11 +104,13 @@ export class WeChatChannel implements DeliverableChannel {
    * 出错时等待 5 秒后重试，避免密集重试
    */
   private async pollLoop(): Promise<void> {
+    log.info('poll loop started');
     while (!this.abortController?.signal.aborted) {
       try {
         const resp = await this.client.poll();
 
         if (resp.msgs && resp.msgs.length > 0) {
+          log.info('poll returned %d messages', resp.msgs.length);
           for (const msg of resp.msgs) {
             // 只处理用户消息（不处理 BOT 类型，那是自己发出的）
             if (msg.message_type === MessageType.USER) {
@@ -116,6 +124,7 @@ export class WeChatChannel implements DeliverableChannel {
         await this.sleep(5000);
       }
     }
+    log.info('poll loop ended');
   }
 
   /**
@@ -137,6 +146,13 @@ export class WeChatChannel implements DeliverableChannel {
       this.cachedContextToken = msg.context_token;
     }
 
+    log.info('processing message msgId=%s from=%s type=%d items=%d',
+      msg.message_id || msg.seq,
+      fromUserId.slice(0, 20),
+      msg.message_type,
+      msg.item_list?.length || 0,
+    );
+
     // 从 item_list 提取文本和图片
     let text = '';
     const images: Array<{ data: string; mimeType: string }> = [];
@@ -149,12 +165,14 @@ export class WeChatChannel implements DeliverableChannel {
           // 下载图片并转为 base64
           const imageUrl = item.image_item?.url || item.image_item?.cdn_url || '';
           try {
+            log.info('downloading image url=%s...', imageUrl.slice(0, 60));
             const response = await fetch(imageUrl);
             const buffer = await response.arrayBuffer();
             const base64 = Buffer.from(buffer).toString('base64');
             images.push({ data: base64, mimeType: 'image/jpeg' });
+            log.info('image downloaded size=%d bytes', buffer.byteLength);
           } catch (err) {
-            log.error('image download failed url=%s error=%s', imageUrl, (err as Error).message);
+            log.error('image download failed url=%s error=%s', imageUrl.slice(0, 60), (err as Error).message);
           }
         }
       }
@@ -178,10 +196,14 @@ export class WeChatChannel implements DeliverableChannel {
       channelMsg.images = images;
     }
 
+    log.info('dispatching message msgId=%s textLen=%d images=%d', channelMsg.id, text.length, images.length);
+
     // 构造 ChannelContext，微信不支持流式，只实现 send()
     const context: ChannelContext = {
       send: async (text: string) => {
+        log.info('sending reply to=%s textLen=%d', fromUserId.slice(0, 20), text.length);
         await this.client.sendText(fromUserId, text, msg.context_token || '');
+        log.info('reply sent msgId=%s', channelMsg.id);
       },
     };
 
