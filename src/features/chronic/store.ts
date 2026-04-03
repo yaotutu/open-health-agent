@@ -6,7 +6,7 @@
 import { eq, desc, and } from 'drizzle-orm';
 import type { Db } from '../../store/db';
 import { chronicConditions, type ChronicCondition, type NewChronicCondition } from '../../store/schema';
-import { logger } from '../../infrastructure/logger';
+
 import { safeJsonStringify } from '../../store/json-utils';
 
 /**
@@ -58,7 +58,6 @@ export const createChronicStore = (db: Db) => {
     };
 
     const result = await db.insert(chronicConditions).values(recordData).returning();
-    logger.info('[store:chronic] added userId=%s condition=%s severity=%s', userId, result[0].condition, result[0].severity);
     return result[0];
   };
 
@@ -90,7 +89,6 @@ export const createChronicStore = (db: Db) => {
       throw new Error(`慢性病记录不存在: ${conditionId}`);
     }
 
-    logger.info('[store:chronic] updated userId=%s conditionId=%d', userId, conditionId);
     return result[0];
   };
 
@@ -132,7 +130,6 @@ export const createChronicStore = (db: Db) => {
       throw new Error(`慢性病记录不存在: ${conditionId}`);
     }
 
-    logger.info('[store:chronic] deactivated userId=%s conditionId=%d condition=%s', userId, conditionId, result[0].condition);
     return result[0];
   };
 

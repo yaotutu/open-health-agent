@@ -5,7 +5,7 @@
 import { eq, desc, and, gte, lte, isNull } from 'drizzle-orm';
 import type { Db } from '../../store/db';
 import { medicationRecords, type MedicationRecord, type NewMedicationRecord } from '../../store/schema';
-import { logger } from '../../infrastructure/logger';
+
 
 /**
  * 查询选项接口
@@ -58,7 +58,6 @@ export const createMedicationStore = (db: Db) => {
     };
 
     const result = await db.insert(medicationRecords).values(recordData).returning();
-    logger.info('[store:medication] recorded userId=%s medication=%s dosage=%s', userId, result[0].medication, result[0].dosage);
     return result[0];
   };
 
@@ -112,7 +111,6 @@ export const createMedicationStore = (db: Db) => {
       throw new Error(`用药记录不存在: ${medicationId}`);
     }
 
-    logger.info('[store:medication] stopped userId=%s medicationId=%d medication=%s', userId, medicationId, result[0].medication);
     return result[0];
   };
 

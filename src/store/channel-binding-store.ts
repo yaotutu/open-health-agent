@@ -2,7 +2,8 @@ import { eq, and } from 'drizzle-orm';
 import type { Db } from './db';
 import { channelBindings } from './schema';
 import type { ChannelBinding, NewChannelBinding } from './schema';
-import { logger } from '../infrastructure/logger';
+import { createLogger } from '../infrastructure/logger';
+const log = createLogger('store');
 
 /**
  * 渠道绑定存储层
@@ -25,7 +26,7 @@ export class ChannelBindingStore {
       updatedAt: now,
     }).returning();
 
-    logger.info('[binding] created userId=%s channel=%s', binding.userId, binding.channelType);
+    log.info('binding created userId=%s channel=%s', binding.userId, binding.channelType);
     return result[0];
   }
 
@@ -67,7 +68,7 @@ export class ChannelBindingStore {
       .set({ status, updatedAt: Date.now() })
       .where(eq(channelBindings.userId, userId));
 
-    logger.info('[binding] status updated userId=%s status=%s', userId, status);
+    log.info('binding status updated userId=%s status=%s', userId, status);
   }
 
   /**
@@ -78,6 +79,6 @@ export class ChannelBindingStore {
     await this.db.delete(channelBindings)
       .where(eq(channelBindings.userId, userId));
 
-    logger.info('[binding] deleted userId=%s', userId);
+    log.info('binding deleted userId=%s', userId);
   }
 }

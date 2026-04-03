@@ -1,7 +1,6 @@
 import { eq, desc, and, gte, lte } from 'drizzle-orm';
 import type { SQLiteTable } from 'drizzle-orm/sqlite-core';
 import type { Db } from './db';
-import { logger } from '../infrastructure/logger';
 
 /**
  * 标准健康记录表的通用查询选项
@@ -63,7 +62,6 @@ export function createRecordStore<TRecord = any, TNewRecord = any>(config: {
     const now = Date.now();
     const recordData = mapRecord(userId, data, now);
     const result = await db.insert(table).values(recordData as any).returning();
-    logger.info(`[store:${label}] recorded userId=%s`, userId);
     return result[0] as TRecord;
   };
 

@@ -1,7 +1,8 @@
 import { eq, desc, and, gte } from 'drizzle-orm';
 import type { Db } from './db';
 import { conversationSummaries, type ConversationSummary, type NewConversationSummary } from './schema';
-import { logger } from '../infrastructure/logger';
+import { createLogger } from '../infrastructure/logger';
+const log = createLogger('store');
 
 /**
  * 对话摘要数据接口
@@ -43,7 +44,7 @@ export const createSummaryStore = (db: Db) => {
     };
 
     const result = await db.insert(conversationSummaries).values(recordData).returning();
-    logger.info('[store:summary] saved userId=%s messageCount=%d', userId, data.messageCount);
+    log.info('summary saved userId=%s messageCount=%d', userId, data.messageCount);
     return result[0];
   };
 
