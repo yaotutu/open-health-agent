@@ -94,5 +94,38 @@ export const logger = pino(
   ])
 );
 
+/**
+ * 子 Logger 接口
+ * 每个模块通过 createLogger(module) 获取，自动绑定 module 名
+ */
+export interface ModuleLogger {
+  info(msg: string, ...args: any[]): void;
+  error(msg: string, ...args: any[]): void;
+  warn(msg: string, ...args: any[]): void;
+  debug(msg: string, ...args: any[]): void;
+  /** 底层 Pino child logger，用于需要传结构化数据的场景（如 LLM payload） */
+  readonly raw: pino.Logger;
+}
+
+/**
+ * 创建绑定 module 的子 Logger
+ * 自动做两件事：
+ * 1. 把 module 作为结构化字段传给 Pino → 数据库 module 列自动填充
+ * 2. 消息文本自动加 [module] 前缀 → 控制台可读
+ *
+ * @param module 模块名，如 'handler'、'bot'、'store'
+ * @returns ModuleLogger 实例
+ */
+export const createLogger = (module: string): ModuleLogger => {
+  const child = logger.child({ module });
+  return {
+    info: (msg, ...args) => child.info(`[${module}] ${msg}`, ...args),
+    error: (msg, ...args) => child.error(`[${module}] ${msg}`, ...args),
+    warn: (msg, ...args) => child.warn(`[${module}] ${msg}`, ...args),
+    debug: (msg, ...args) => child.debug(`[${module}] ${msg}`, ...args),
+    raw: child,
+  };
+};
+
 // 兼容旧代码的默认导出
 export default logger;
