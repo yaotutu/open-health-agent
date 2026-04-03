@@ -72,6 +72,17 @@ export class ChannelBindingStore {
   }
 
   /**
+   * 更新绑定凭据（用于保存微信消息同步游标等需要更新的凭据字段）
+   * @param userId 用户ID
+   * @param credentials 新的凭据 JSON 字符串
+   */
+  async updateCredentials(userId: string, credentials: string): Promise<void> {
+    await this.db.update(channelBindings)
+      .set({ credentials, updatedAt: Date.now() })
+      .where(eq(channelBindings.userId, userId));
+  }
+
+  /**
    * 删除绑定记录
    * @param userId 用户ID
    */

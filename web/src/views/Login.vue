@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import ChannelTabs from '../components/ChannelTabs.vue'
 import BindForm from '../components/BindForm.vue'
+import WechatQRLogin from '../components/WechatQRLogin.vue'
 
 /** 可用渠道列表（从后端 API 获取） */
 const channels = ref<any[]>([])
@@ -44,7 +45,7 @@ const onSelectChannel = (channel: any) => {
 }
 
 /**
- * 提交绑定
+ * 提交绑定（表单渠道）
  */
 const onBind = async (credentials: Record<string, string>) => {
   if (!selectedChannel.value) return
@@ -75,6 +76,13 @@ const onBind = async (credentials: Record<string, string>) => {
     loading.value = false
   }
 }
+
+/**
+ * 微信 QR 扫码绑定成功
+ */
+const onWechatBindSuccess = (userId: string) => {
+  emit('bind-success', userId)
+}
 </script>
 
 <template>
@@ -91,9 +99,17 @@ const onBind = async (credentials: Record<string, string>) => {
         @select="onSelectChannel"
       />
 
-      <!-- 绑定表单 -->
+      <!-- 微信 QR 扫码绑定 -->
+      <WechatQRLogin
+        v-if="selectedChannel?.type === 'wechat'"
+        :loading="loading"
+        :error="error"
+        @bind-success="onWechatBindSuccess"
+      />
+
+      <!-- 标准表单绑定 -->
       <BindForm
-        v-if="selectedChannel"
+        v-else-if="selectedChannel"
         :channel="selectedChannel"
         :loading="loading"
         :error="error"

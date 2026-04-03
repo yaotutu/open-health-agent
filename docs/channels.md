@@ -20,6 +20,37 @@
 
 通过 `pure-qqbot` 库实现，自动回复用户消息（不支持流式，累积后发送）。QQ 凭证通过 Web 登录页绑定，存储在 `channel_bindings` 表中，不再使用环境变量。
 
+## 微信
+
+通过 `weixin-ilink` 库实现，使用微信 iLink Bot 协议直接连接微信服务器。用户需在微信中开启 ClawBot 插件（微信 > 我 > 设置 > 插件），这是腾讯逐步灰度开放的官方功能。
+
+### 与 QQ 渠道的差异
+
+| | QQ | 微信 |
+|---|---|---|
+| 连接方式 | WebSocket 长连接 | HTTP 长轮询 (35s) |
+| 认证方式 | appId + appSecret 表单 | QR 扫码登录 |
+| 入站消息 | SDK 回调 `onMessage` | 主动轮询 `poll()` |
+| 凭据持久化 | 表单凭据永久有效 | Token 失效需重新扫码 |
+
+### QR 扫码绑定流程
+
+微信不支持表单凭据，绑定通过扫码完成：
+
+1. 前端调用 `POST /api/wechat/qrcode` 生成 QR 码
+2. 用户用微信扫描 QR 码
+3. 前端轮询 `GET /api/wechat/login-status/:loginId` 跟踪状态
+4. 登录成功后后端自动完成绑定，返回 userId
+
+### 游标持久化
+
+微信渠道使用 `get_updates_buf` 游标跟踪消息同步位置。服务关闭时游标保存到 `channel_bindings.credentials` JSON 中，重启后恢复，避免重复/遗漏消息。
+
+### 微信专用 API
+
+- `POST /api/wechat/qrcode` — 生成 QR 码，启动扫码登录
+- `GET /api/wechat/login-status/:loginId` — 查询扫码登录状态
+
 ## 通道注册
 
 通道通过 `ChannelFactory` 接口注册到 `ChannelRegistry`，支持动态添加新通道：
@@ -46,7 +77,9 @@
 
 ## Web 前端
 
-Vue 3 + Vite 单页应用（`web/` 目录），提供 QQ Bot 登录绑定页面：
+Vue 3 + Vite 单页应用（`web/` 目录），提供渠道登录绑定页面：
 - 开发时通过 `concurrently` 同时启动 server 和 Vite dev server
 - Vite 代理 `/api` 请求到后端 `localhost:3001`
 - 构建产物输出到 `dist/web/`，由 Hono 静态文件服务提供
+- QQ Bot 使用标准表单绑定（`BindForm` 组件）
+- 微信使用 QR 扫码绑定（`WechatQRLogin` 组件），前端根据渠道类型自动切换

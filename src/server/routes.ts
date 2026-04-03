@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { serveStatic } from 'hono/bun';
 import { getChannelFactories } from '../channels/registry';
 import type { BotManager } from '../bot/bot-manager';
+import { createWechatRoutes } from './wechat-routes';
 import { createLogger } from '../infrastructure/logger';
 
 const log = createLogger('api');
@@ -102,6 +103,9 @@ export function createApp(botManager: BotManager): Hono {
 
   // API 路由
   app.route('/api', createApiRoutes(botManager));
+
+  // 微信 QR 扫码登录路由
+  app.route('/api/wechat', createWechatRoutes(botManager));
 
   // 前端静态文件服务（构建产物）
   app.use('/*', serveStatic({ root: './dist/web' }));

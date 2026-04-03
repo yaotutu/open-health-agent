@@ -1,5 +1,6 @@
 import type { ChannelFactory } from './factory';
 import { QqChannelFactory } from './qq-factory';
+import { WechatChannelFactory } from './wechat-factory';
 
 /**
  * 渠道注册表
@@ -8,8 +9,8 @@ import { QqChannelFactory } from './qq-factory';
  */
 const factories: ChannelFactory[] = [
   new QqChannelFactory(),
+  new WechatChannelFactory(),
   // 未来渠道在此添加：
-  // new WechatChannelFactory(),
   // new TelegramChannelFactory(),
 ];
 

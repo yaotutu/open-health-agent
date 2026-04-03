@@ -3,6 +3,7 @@ import { ChannelBindingStore } from '../store/channel-binding-store';
 import { UserBot } from './user-bot';
 import { getChannelFactory } from '../channels/registry';
 import type { CronService } from '../cron/service';
+import type { DeliverableChannel } from '../channels/types';
 import { createLogger } from '../infrastructure/logger';
 const log = createLogger('bot');
 
@@ -134,13 +135,14 @@ export class BotManager {
   }
 
   /**
-   * 解绑用户：停止 Bot + 更新绑定状态
+   * 解绑用户：停止 Bot + 保存游标 + 更新绑定状态
    * @param userId 用户ID
    */
   async unbind(userId: string): Promise<void> {
-    // 停止 Bot 实例
+    // 停止前保存微信渠道的游标
     const bot = this.bots.get(userId);
     if (bot) {
+      await this.saveWeChatCursor(userId, bot);
       await bot.stop();
       this.bots.delete(userId);
     }
@@ -191,11 +193,12 @@ export class BotManager {
 
   /**
    * 停止所有 Bot 实例
-   * 在服务关闭时调用
+   * 在服务关闭时调用，保存微信渠道游标后停止
    */
   async stopAll(): Promise<void> {
-    for (const bot of this.bots.values()) {
+    for (const [userId, bot] of this.bots.entries()) {
       try {
+        await this.saveWeChatCursor(userId, bot);
         await bot.stop();
       } catch (err) {
         log.error('stop failed userId=%s error=%s', bot.userId, (err as Error).message);
@@ -203,6 +206,28 @@ export class BotManager {
     }
     this.bots.clear();
     log.info('all bots stopped');
+  }
+
+  /**
+   * 保存微信渠道的消息同步游标到数据库
+   * 在停止 Bot 前调用，确保重启后能从上次位置继续拉取消息
+   * @param userId 用户ID
+   * @param bot 用户 Bot 实例
+   */
+  private async saveWeChatCursor(userId: string, bot: UserBot): Promise<void> {
+    const cursor = bot.getWeChatCursor();
+    if (!cursor) return;
+
+    try {
+      const binding = await this.bindingStore.getActiveByUserId(userId);
+      if (!binding) return;
+
+      const credentials = JSON.parse(binding.credentials);
+      credentials.cursor = cursor;
+      await this.bindingStore.updateCredentials(userId, JSON.stringify(credentials));
+    } catch (err) {
+      log.error('save cursor failed userId=%s error=%s', userId, (err as Error).message);
+    }
   }
 
   /**
@@ -215,8 +240,9 @@ export class BotManager {
     switch (channelType) {
       case 'qq':
         return credentials.appId;
+      case 'wechat':
+        return credentials.accountId || credentials.botToken.slice(0, 16);
       // 未来渠道在此添加：
-      // case 'wechat': return credentials.appId;
       // case 'telegram': return credentials.botToken;
       default:
         throw new Error(`未知的渠道类型: ${channelType}`);

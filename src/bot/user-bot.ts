@@ -241,4 +241,16 @@ export class UserBot {
     this.deliverableChannels = [];
     log.info('stopped userId=%s', this.userId);
   }
+
+  /**
+   * 获取微信渠道的消息同步游标（用于持久化）
+   * @returns 游标字符串，如果不存在微信渠道则返回 undefined
+   */
+  getWeChatCursor(): string | undefined {
+    const wechatChannel = this.channels.get('wechat');
+    if (wechatChannel && 'getCursor' in wechatChannel && typeof (wechatChannel as any).getCursor === 'function') {
+      return (wechatChannel as any).getCursor() as string;
+    }
+    return undefined;
+  }
 }
