@@ -2,7 +2,7 @@
   "name": "open-health-agent",
   "version": "1.0.0",
   "description": "Personal health advisor agent",
-  "main": "dist/index.js",
+  "main": "dist/main.js",
   "type": "module",
   "scripts": {
     "dev": "concurrently -n server,web -c blue,green \"bun run server\" \"cd web && npx vite --host\"",
