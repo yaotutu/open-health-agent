@@ -1,0 +1,12 @@
+node_modules
+dist
+.git
+.env
+data/
+workspace/
+*.log
+.claude/
+.superpowers/
+.worktrees/
+README.md
+docs/
