@@ -7,9 +7,6 @@ WORKDIR /app
 COPY package.json bun.lock ./
 COPY web/package.json ./web/package.json
 
-# better-sqlite3 需要 native 编译，安装构建工具
-RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
-
 # 安装依赖
 RUN bun install --frozen-lockfile
 RUN cd web && bun install --frozen-lockfile
@@ -28,10 +25,7 @@ FROM oven/bun:1 AS runner
 
 WORKDIR /app
 
-# 安装 better-sqlite3 运行时依赖
-RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
-
-# 拷贝依赖声明并安装生产依赖
+# 拷贝依赖声明并安装生产依赖（better-sqlite3 只在 devDependencies，不需要编译工具）
 COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile --production
 
