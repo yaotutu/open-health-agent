@@ -17,6 +17,9 @@ COPY src/ ./src/
 COPY web/ ./web/
 COPY drizzle.config.ts ./
 
+# 生成 SQL 迁移文件（drizzle-kit generate 只读取 schema，不需要数据库连接）
+RUN bunx drizzle-kit generate
+
 # 构建后端（tsc 编译到 dist/）和前端（vite 构建到 dist/web/）
 RUN bun run build
 
@@ -29,14 +32,19 @@ WORKDIR /app
 COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile --production
 
-# 拷贝构建产物
+# 拷贝构建产物和迁移文件
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/drizzle ./drizzle
 
 # 创建数据目录（SQLite 数据库挂载点）
 RUN mkdir -p /app/data /app/workspace
+
+# 拷贝启动脚本
+COPY docker-entrypoint.sh ./
+RUN chmod +x docker-entrypoint.sh
 
 # 暴露端口
 EXPOSE 3001
 
 # 启动服务
-CMD ["bun", "run", "dist/main.js"]
+CMD ["./docker-entrypoint.sh"]
