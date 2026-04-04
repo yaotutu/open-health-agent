@@ -8,7 +8,7 @@ COPY package.json bun.lock ./
 COPY web/package.json ./web/package.json
 
 # 安装依赖
-RUN bun install --frozen-lockfile
+RUN bun install --frozen-lockfile --ignore-scripts
 RUN cd web && bun install --frozen-lockfile
 
 # 拷贝源代码
