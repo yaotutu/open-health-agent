@@ -21,7 +21,15 @@ export const config = {
     model: process.env.LLM_MODEL || 'claude-sonnet-4-6',
   },
 
-  /** QQ Bot 配置已移除 — 凭据通过登录页绑定，存储在 channel_bindings 表中 */
+  /** QQ Bot SDK 配置（凭据通过登录页绑定，存储在 channel_bindings 表中） */
+  qq: {
+    /** 会话持久化目录，跨重启可恢复 WebSocket 连接 */
+    sessionDir: process.env.QQ_SESSION_DIR || './data/qq-sessions',
+    /** 处理消息期间自动发送"正在输入"提示 */
+    typingKeepAlive: process.env.QQ_TYPING_KEEP_ALIVE !== '0',
+    /** 解析 QQ 表情标签（如 [微笑]）为可读文本 */
+    parseFaceEmoji: process.env.QQ_PARSE_FACE_EMOJI !== '0',
+  },
 
   /** 日志相关配置 */
   log: {

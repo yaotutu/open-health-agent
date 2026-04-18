@@ -70,7 +70,10 @@ export interface ChannelCapabilities {
 export interface ChannelContext {
   /** 发送完整文本响应（所有通道必须实现） */
   send(text: string): Promise<void>;
-  /** 流式发送文本增量（仅 capabilities.streaming=true 的通道实现） */
+  /** 流式发送文本增量（仅 capabilities.streaming=true 的通道实现）
+   *  @param text 本次增量文本（非累积全文）
+   *  @param done 是否为最后一块，true 时表示流结束
+   */
   sendStream?(text: string, done: boolean): Promise<void>;
   /** 通知通道开始处理（如"正在输入..."指示器） */
   sendTyping?(): Promise<void>;

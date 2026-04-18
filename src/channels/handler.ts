@@ -71,11 +71,21 @@ export const createMessageHandler = (options: CreateMessageHandlerOptions) => {
       const agent = await createAgent(userId, messages);
       onAgentCreated?.(agent);
 
-      // 4. 订阅 message_end 事件捕获助手响应
+      // 4. 订阅事件：捕获完整响应 + 流式转发 text_delta
       let assistantMessage: any = null;
+      const isStreaming = !!context.capabilities?.streaming;
       const unsubscribe = agent.subscribe((event) => {
         if (event.type === 'message_end' && event.message.role === 'assistant') {
           assistantMessage = event.message;
+        }
+        // 流式：将 text_delta 增量转发到通道（fire-and-forget，不阻塞事件循环）
+        if (isStreaming && event.type === 'message_update') {
+          const assistantEvent = (event as any).assistantMessageEvent;
+          if (assistantEvent?.type === 'text_delta' && assistantEvent.delta) {
+            context.sendStream?.(assistantEvent.delta, false).catch((err: Error) => {
+              log.error('stream delta failed error=%s', err.message);
+            });
+          }
         }
       });
 
@@ -122,7 +132,13 @@ export const createMessageHandler = (options: CreateMessageHandlerOptions) => {
             content: assistantText,
             timestamp: Date.now(),
           });
-          if (!context.capabilities?.streaming) {
+          if (isStreaming) {
+            // 流式通道：发送最终 done 块，结束打字机效果
+            await context.sendStream?.('', true).catch((err: Error) => {
+              log.error('stream end failed error=%s', err.message);
+            });
+          } else {
+            // 非流式通道：发送完整响应
             await context.send(assistantText);
           }
         }
