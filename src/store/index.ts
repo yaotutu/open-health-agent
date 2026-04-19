@@ -12,7 +12,6 @@ import { createSummaryStore, type SummaryStore } from './summary';
 import { createLogStore, type LogStore } from './logs';
 import { createMedicationStore, type MedicationStore } from '../features/medication/store';
 import { createChronicStore, type ChronicStore } from '../features/chronic/store';
-import { createObservationStore, type ObservationStore } from '../features/observation/store';
 import { createHeartbeatTaskStore, type HeartbeatTaskStore } from '../features/heartbeat/store';
 import { createCronJobStore, type CronJobStore } from './cron-store';
 import {
@@ -28,14 +27,12 @@ import {
   conversationSummaries,
   medicationRecords,
   chronicConditions,
-  healthObservations,
   type Message,
   type UserProfile,
   type MemoryRecord,
   type ConversationSummary,
   type MedicationRecord,
   type ChronicCondition,
-  type HealthObservation,
 } from './schema';
 import type { Database } from 'bun:sqlite';
 
@@ -55,7 +52,6 @@ export {
   createLogStore,
   createMedicationStore,
   createChronicStore,
-  createObservationStore,
   createHeartbeatTaskStore,
   createCronJobStore,
 };
@@ -74,7 +70,6 @@ export {
   conversationSummaries,
   medicationRecords,
   chronicConditions,
-  healthObservations,
 };
 
 // 导出所有类型
@@ -93,7 +88,6 @@ export type {
   LogStore,
   MedicationStore,
   ChronicStore,
-  ObservationStore,
   HeartbeatTaskStore,
   CronJobStore,
   Message,
@@ -102,7 +96,6 @@ export type {
   ConversationSummary,
   MedicationRecord,
   ChronicCondition,
-  HealthObservation,
 };
 
 // 统一的 Store 类，管理所有存储模块和数据库初始化
@@ -134,9 +127,6 @@ export class Store {
   // 慢性病记录存储
   readonly chronic: ChronicStore;
 
-  // 健康观察记录存储
-  readonly observation: ObservationStore;
-
   // 心跳任务存储
   readonly heartbeatTask: HeartbeatTaskStore;
 
@@ -163,7 +153,6 @@ export class Store {
     this.logs = createLogStore(this.sqlite);
     this.medication = createMedicationStore(this.db);
     this.chronic = createChronicStore(this.db);
-    this.observation = createObservationStore(this.db);
     this.heartbeatTask = createHeartbeatTaskStore(this.sqlite);
     this.cronJobs = createCronJobStore(this.db);
   }

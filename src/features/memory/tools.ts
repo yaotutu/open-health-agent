@@ -34,11 +34,22 @@ const DeleteMemoryParamsSchema = Type.Object({
   memoryId: Type.Number({ description: '记忆ID' }),
 });
 
+/**
+ * 更新记忆的参数 Schema
+ * 支持更新记忆内容和分类标签
+ */
+const UpdateMemoryParamsSchema = Type.Object({
+  memoryId: Type.Number({ description: '要更新的记忆ID' }),
+  content: Type.Optional(Type.String({ description: '新的记忆内容' })),
+  category: Type.Optional(Type.String({ description: '新的分类标签' })),
+});
+
 // ==================== 工具类型定义 ====================
 
 type SaveMemoryParams = typeof SaveMemoryParamsSchema;
 type QueryMemoriesParams = typeof QueryMemoriesParamsSchema;
 type DeleteMemoryParams = typeof DeleteMemoryParamsSchema;
+type UpdateMemoryParams = typeof UpdateMemoryParamsSchema;
 
 // ==================== 工具创建函数 ====================
 
@@ -113,5 +124,33 @@ export const createMemoryTools = (store: MemoryStore, userId: string) => {
     },
   };
 
-  return { saveMemory, queryMemories, deleteMemory };
+  /**
+   * 更新记忆工具
+   * 更新已有记忆的内容或分类标签，用于修正、补充或合并记忆
+   */
+  const updateMemory: AgentTool<UpdateMemoryParams> = {
+    name: 'update_memory',
+    label: '更新记忆',
+    description: '更新指定记忆的内容或分类标签。',
+    parameters: UpdateMemoryParamsSchema,
+    execute: async (_toolCallId, params, _signal) => {
+      try {
+        const record = await store.update(userId, params.memoryId, {
+          content: params.content,
+          category: params.category,
+        });
+        return {
+          content: [{ type: 'text', text: `已更新记忆 ID ${params.memoryId}: ${record.content}` }],
+          details: { id: record.id, record },
+        };
+      } catch (err) {
+        return {
+          content: [{ type: 'text', text: `更新失败: ${(err as Error).message}` }],
+          details: { success: false },
+        };
+      }
+    },
+  };
+
+  return { saveMemory, queryMemories, deleteMemory, updateMemory };
 };

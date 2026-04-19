@@ -260,27 +260,6 @@ export const chronicConditions = sqliteTable('chronic_conditions', {
 ]);
 
 /**
- * 健康观察记录表
- * 存储用户的非结构化健康观察，如"最近睡眠不好"、"感觉压力大"等
- * 用于记录不适合用具体指标衡量的健康相关感受
- */
-export const healthObservations = sqliteTable('health_observations', {
-  /** 记录ID，自增主键 */
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  /** 用户ID */
-  userId: text('user_id').notNull(),
-  /** 观察内容 */
-  content: text('content').notNull(),
-  /** 标签，JSON 数组字符串，如 ["睡眠","疲劳"] */
-  tags: text('tags'),
-  /** 记录时间戳 */
-  timestamp: integer('timestamp').notNull(),
-}, (table) => [
-  /** 用户ID索引，加速按用户查询健康观察记录 */
-  index('idx_observation_user_id').on(table.userId),
-]);
-
-/**
  * 消息历史表
  * 存储用户与助手的对话记录
  * metadata 字段用于存储图片 URL/格式元信息，不存储 base64 数据
@@ -319,6 +298,8 @@ export const memories = sqliteTable('memories', {
   category: text('category'),
   /** 创建时间戳 */
   createdAt: integer('created_at').notNull(),
+  /** 更新时间戳，null 表示从未被更新过 */
+  updatedAt: integer('updated_at'),
 }, (table) => [
   /** 用户ID索引，加速按用户查询记忆 */
   index('memories_user_id_idx').on(table.userId),
@@ -408,11 +389,6 @@ export type NewMedicationRecord = typeof medicationRecords.$inferInsert;
 export type ChronicCondition = typeof chronicConditions.$inferSelect;
 /** 慢性病记录插入类型 */
 export type NewChronicCondition = typeof chronicConditions.$inferInsert;
-
-/** 健康观察记录查询结果类型 */
-export type HealthObservation = typeof healthObservations.$inferSelect;
-/** 健康观察记录插入类型 */
-export type NewHealthObservation = typeof healthObservations.$inferInsert;
 
 /**
  * 心跳任务表

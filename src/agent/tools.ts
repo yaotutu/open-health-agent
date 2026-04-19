@@ -7,7 +7,6 @@ import { createWaterTools, createWaterSimpleQuery } from '../features/water/tool
 import { createSymptomTools, createSymptomSimpleQuery } from '../features/symptom/tools';
 import { createMedicationTools, createMedicationSimpleQuery } from '../features/medication/tools';
 import { createChronicTools, createChronicSimpleQuery } from '../features/chronic/tools';
-import { createObservationTools, createObservationSimpleQuery } from '../features/observation/tools';
 import { createMemoryTools } from '../features/memory/tools';
 import { createProfileTools } from '../features/profile/tools';
 import { createHeartbeatTools, createHeartbeatSimpleQuery } from '../features/heartbeat/tools';
@@ -56,7 +55,6 @@ export const createCommonTools = (
     createSymptomSimpleQuery(store.symptom, userId),
     createMedicationSimpleQuery(store.medication, userId),
     createChronicSimpleQuery(store.chronic, userId),
-    createObservationSimpleQuery(store.observation, userId),
     createHeartbeatSimpleQuery(store.heartbeatTask, userId),
     // cron 条件注册：无 cronService 时不注册
     ...(cronService ? [createCronSimpleQuery(cronService, userId)] : []),
@@ -108,8 +106,6 @@ export const getSkillTools = (
       return cast(Object.values(createMedicationTools(store.medication, userId)));
     case 'chronic':
       return cast(Object.values(createChronicTools(store.chronic, userId)));
-    case 'observation':
-      return cast(Object.values(createObservationTools(store.observation, userId)));
     case 'heartbeat':
       return cast(Object.values(createHeartbeatTools(store.heartbeatTask, userId)));
     case 'cron':

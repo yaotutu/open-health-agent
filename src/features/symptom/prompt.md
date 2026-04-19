@@ -1,29 +1,35 @@
-# 症状记录
+# 症状与健康感受记录
 
 ## 工具
-`record_symptom`
+`record_symptom`、`query_symptom_records`、`resolve_symptom`
 
 ## 参数
 | 参数 | 类型 | 说明 |
 |------|------|------|
-| description | string | 症状描述 |
-| severity | number | 严重程度 (1-10) |
-| bodyPart | string | 身体部位 |
-| relatedType | string | 关联记录类型（diet/exercise 等） |
-| relatedId | string | 关联记录 ID |
-| note | string | 备注 |
+| description | string | 描述（必填） |
+| severity | number | 严重程度 1-10（可选） |
+| bodyPart | string | 身体部位（可选） |
+| relatedType | string | 关联记录类型，如 diet、exercise（可选） |
+| relatedId | number | 关联记录 ID（可选） |
+| note | string | 备注（可选） |
 
-## 使用时机
-- 用户提到身体不适（如"头疼"、"胃不舒服"、"有点累"）
-- 用户描述症状或疼痛
+## 适用范围
+所有身体和心理的不适、感受、异常状态，统一用这一个工具记录：
 
-## 症状记录特别说明
-当用户提到身体不适时：
-1. 主动询问症状的详细信息：描述、严重程度(1-10)、身体部位
-2. 询问是否可能与最近的饮食或活动有关
-3. 如果用户提到刚吃了某样东西或做了某项运动，先记录该饮食/运动，然后将症状关联到该记录
-4. 记录 symptom 时，使用 relatedType 和 relatedId 字段建立关联
+- **具体症状**：头疼、胃不舒服、过敏、疼痛 → 填写 description + severity + bodyPart
+- **模糊感受**：感觉压力大、最近疲劳、精神不好、焦虑 → 填写 description，severity 等可选
+- **异常状态**：最近睡眠不好、容易累、注意力不集中 → 同上
 
-示例对话：
-用户："我刚吃完海鲜大餐，现在胃有点不舒服"
-AI：先调用 record_diet 记录海鲜大餐，然后询问症状详情，最后调用 record_symptom 并关联该饮食记录
+不需要区分"这是症状还是观察"，只要用户表达了身体/心理的不适或异常，就用 record_symptom 记录。
+
+## 关联记录
+当用户提到不适可能与某个具体行为有关时：
+1. 先记录关联的行为（如饮食 record_diet、运动 record_exercise）
+2. 再调用 record_symptom，使用 relatedType 和 relatedId 建立关联
+
+示例：
+用户："刚吃完海鲜，胃有点不舒服"
+→ 先 record_diet 记录海鲜，再 record_symptom 记录胃不适并关联该饮食记录
+
+## 标记解决
+用户说"好了"、"没事了"、"不疼了"时，使用 resolve_symptom 标记对应症状为已解决。

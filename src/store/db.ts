@@ -11,10 +11,9 @@ import {
   messages,
   memories,
   conversationSummaries,
-  // 以下三个表是新增的健康记录表，需要注册到 Drizzle 以支持 Kit 迁移
+  // 以下表是新增的健康记录表，需要注册到 Drizzle 以支持 Kit 迁移
   medicationRecords,     // 用药记录表
   chronicConditions,     // 慢性病记录表
-  healthObservations,    // 健康观察记录表
   // 心跳任务表和应用日志表，注册到 Drizzle 以支持 Kit 迁移
   heartbeatTasks,        // 心跳任务表（用户主动关怀定时任务）
   logs,                  // 应用日志表（结构化日志持久化）
@@ -42,7 +41,6 @@ export interface CreateDbResult {
     // 新增三个健康记录表的类型定义，用于 TypeScript 类型推断
     medicationRecords: typeof medicationRecords;     // 用药记录
     chronicConditions: typeof chronicConditions;     // 慢性病记录
-    healthObservations: typeof healthObservations;   // 健康观察记录
     // 心跳任务表和应用日志表的类型定义，注册后 Drizzle 可正确推断类型
     heartbeatTasks: typeof heartbeatTasks;           // 心跳任务
     logs: typeof logs;                               // 应用日志
@@ -71,10 +69,9 @@ export const createDb = (dbPath: string): CreateDbResult => {
       messages,
       memories,
       conversationSummaries,
-      // 注册新增的三个表到 Drizzle schema，使 Drizzle Kit 能够识别并迁移这些表
+      // 注册新增的表到 Drizzle schema，使 Drizzle Kit 能够识别并迁移这些表
       medicationRecords,     // 用药记录表
       chronicConditions,     // 慢性病记录表
-      healthObservations,    // 健康观察记录表
       // 注册心跳任务表和应用日志表，使 Drizzle Kit 能够管理这些表的迁移
       heartbeatTasks,        // 心跳任务表
       logs,                  // 应用日志表

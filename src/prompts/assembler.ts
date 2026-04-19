@@ -10,7 +10,6 @@ import { formatSection as formatExerciseSection } from '../features/exercise/sto
 import { formatSection as formatSleepSection } from '../features/sleep/store';
 import { formatSection as formatWaterSection } from '../features/water/store';
 import { formatSection as formatMedicationSection } from '../features/medication/store';
-import { formatSection as formatObservationSection } from '../features/observation/store';
 import { readSkillCatalog } from '../agent/skill-tool';
 
 /**
@@ -75,7 +74,7 @@ function formatProfile(profile: UserProfile | undefined): string {
  */
 async function formatRecentRecords(store: Store, userId: string): Promise<string> {
   // 并行查询各类型记录
-  const [body, diet, symptom, exercise, sleep, water, medication, observations] = await Promise.all([
+  const [body, diet, symptom, exercise, sleep, water, medication] = await Promise.all([
     store.body.query(userId, { limit: 5 }).catch(() => []),
     store.diet.query(userId, { limit: 5 }).catch(() => []),
     store.symptom.query(userId, { limit: 5 }).catch(() => []),
@@ -83,7 +82,6 @@ async function formatRecentRecords(store: Store, userId: string): Promise<string
     store.sleep.query(userId, { limit: 5 }).catch(() => []),
     store.water.query(userId, { limit: 5 }).catch(() => []),
     store.medication.query(userId, { activeOnly: true, limit: 10 }).catch(() => []),
-    store.observation.query(userId, { limit: 5 }).catch(() => []),
   ]);
 
   // 委托各 feature 的 formatSection 格式化，过滤掉空结果
@@ -95,7 +93,6 @@ async function formatRecentRecords(store: Store, userId: string): Promise<string
     formatSleepSection(sleep),
     formatWaterSection(water),
     formatMedicationSection(medication),
-    formatObservationSection(observations),
   ].filter((s): s is string => s !== null);
 
   if (sections.length === 0) return '';

@@ -7,6 +7,7 @@ import { withTimeContext, formatDate } from '../infrastructure/time';
 import { assembleSystemPrompt } from '../prompts/assembler';
 import { extractAssistantText } from '../agent/event-utils';
 import { generateConversationSummary } from '../session';
+import { consolidateMemories } from '../session/consolidate';
 import { config } from '../config';
 
 export interface CreateMessageHandlerOptions {
@@ -50,6 +51,26 @@ function maybeGenerateSummary(store: Store, userId: string): void {
       log.info('summary generated userId=%s count=%d', userId, messages.length);
     } catch (err) {
       log.error('summary failed userId=%s error=%s', userId, (err as Error).message);
+    }
+  })();
+}
+
+/**
+ * 每轮对话结束后异步执行记忆巩固
+ * 将最近对话和现有记忆发送给独立的 LLM 调用，让 LLM 判断是否需要新增、更新或删除记忆
+ * 完全隔离：不使用 Agent 实例，不影响对话上下文
+ * fire-and-forget：不阻塞用户收到回复，失败也不影响
+ */
+function runMemoryConsolidation(store: Store, userId: string, messages: Message[]): void {
+  if (config.testMode) return;
+
+  // fire-and-forget：不 await
+  (async () => {
+    try {
+      const existingMemories = await store.memory.getAll(userId);
+      await consolidateMemories(store, userId, messages, existingMemories);
+    } catch (err) {
+      log.error('consolidation failed userId=%s error=%s', userId, (err as Error).message);
     }
   })();
 }
@@ -142,6 +163,11 @@ export const createMessageHandler = (options: CreateMessageHandlerOptions) => {
             await context.send(assistantText);
           }
         }
+
+        // 11. 记忆巩固（fire-and-forget，不阻塞）
+        // 每轮对话结束后，独立调用 LLM 审查对话并更新记忆
+        const allMessages = await store.messages.getMessages(userId);
+        runMemoryConsolidation(store, userId, allMessages);
       } finally {
         unsubscribe();
         onAgentDone?.();

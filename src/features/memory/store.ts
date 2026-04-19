@@ -15,6 +15,17 @@ export interface MemoryRecordData {
 }
 
 /**
+ * 记忆更新数据接口
+ * 用于部分更新已有记忆的字段
+ */
+export interface MemoryRecordUpdate {
+  /** 新的记忆内容 */
+  content?: string;
+  /** 新的分类标签 */
+  category?: string;
+}
+
+/**
  * 记忆查询选项接口
  */
 export interface MemoryQueryOptions {
@@ -39,11 +50,13 @@ export const createMemoryStore = (db: Db) => {
    * @returns 创建成功的记忆记录
    */
   const save = async (userId: string, data: MemoryRecordData): Promise<MemoryRecord> => {
+    const now = Date.now();
     const recordData: NewMemoryRecord = {
       userId,
       content: data.content,
       category: data.category,
-      createdAt: Date.now(),
+      createdAt: now,
+      updatedAt: now,
     };
 
     const result = await db.insert(memories).values(recordData).returning();
@@ -87,6 +100,35 @@ export const createMemoryStore = (db: Db) => {
   };
 
   /**
+   * 更新指定记忆
+   * 只更新提供的字段，同时更新 updatedAt 时间戳
+   * @param userId 用户ID（用于权限验证）
+   * @param memoryId 要更新的记忆ID
+   * @param data 要更新的字段（content 和/或 category）
+   * @returns 更新后的记忆记录
+   */
+  const update = async (userId: string, memoryId: number, data: MemoryRecordUpdate): Promise<MemoryRecord> => {
+    const updateData: Partial<NewMemoryRecord> = {
+      updatedAt: Date.now(),
+    };
+
+    if (data.content !== undefined) updateData.content = data.content;
+    if (data.category !== undefined) updateData.category = data.category;
+
+    const result = await db
+      .update(memories)
+      .set(updateData)
+      .where(and(eq(memories.id, memoryId), eq(memories.userId, userId)))
+      .returning();
+
+    if (result.length === 0) {
+      throw new Error(`记忆不存在: ${memoryId}`);
+    }
+
+    return result[0];
+  };
+
+  /**
    * 删除指定记忆
    * 根据 ID 删除一条记忆记录，同时验证用户归属以确保安全
    * @param userId 用户ID（用于权限验证）
@@ -116,7 +158,7 @@ export const createMemoryStore = (db: Db) => {
       .orderBy(desc(memories.createdAt));
   };
 
-  return { save, query, remove, getAll };
+  return { save, query, update, remove, getAll };
 };
 
 /**
