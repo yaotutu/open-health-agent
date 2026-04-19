@@ -1,7 +1,7 @@
 # 睡眠记录
 
 ## 工具
-`record_sleep`
+`record_sleep`、`update_sleep_record`
 
 ## 参数
 | 参数 | 类型 | 说明 |

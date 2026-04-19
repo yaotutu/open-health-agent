@@ -1,7 +1,7 @@
 # 症状与健康感受记录
 
 ## 工具
-`record_symptom`、`query_symptom_records`、`resolve_symptom`
+`record_symptom`、`update_symptom_record`、`query_symptom_records`、`resolve_symptom`
 
 ## 参数
 | 参数 | 类型 | 说明 |

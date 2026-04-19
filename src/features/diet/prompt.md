@@ -1,7 +1,7 @@
 # 饮食记录
 
 ## 工具
-`record_diet`
+`record_diet`、`update_diet_record`
 
 ## 参数
 | 参数 | 类型 | 说明 |

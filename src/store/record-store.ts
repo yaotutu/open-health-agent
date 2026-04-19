@@ -108,5 +108,25 @@ export function createRecordStore<TRecord = any, TNewRecord = any>(config: {
     return results[0] as TRecord | undefined;
   };
 
-  return { record, query, getLatest };
+  /**
+   * 更新一条记录
+   * 只更新 data 中提供的字段，同时验证用户归属
+   * @param userId 用户 ID（用于权限验证）
+   * @param recordId 要更新的记录 ID
+   * @param data 要更新的字段（只包含需要修改的字段）
+   * @returns 更新后的完整记录
+   */
+  const update = async (userId: string, recordId: number, data: Record<string, any>): Promise<TRecord> => {
+    const result = await db
+      .update(table)
+      .set(data)
+      .where(and(eq(columns.id, recordId), eq(columns.userId, userId)))
+      .returning();
+    if (result.length === 0) {
+      throw new Error(`${label}记录不存在: ${recordId}`);
+    }
+    return result[0] as TRecord;
+  };
+
+  return { record, query, getLatest, update };
 }

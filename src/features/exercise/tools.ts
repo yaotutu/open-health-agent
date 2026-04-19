@@ -24,6 +24,24 @@ const RecordExerciseParamsSchema = Type.Object({
 type RecordExerciseParams = typeof RecordExerciseParamsSchema;
 
 /**
+ * 修改运动记录的参数 Schema
+ * 只需提供记录 ID 和要修改的字段
+ */
+const UpdateExerciseParamsSchema = Type.Object({
+  id: Type.Number({ description: '记录ID' }),
+  type: Type.Optional(Type.String({ description: '运动类型' })),
+  duration: Type.Optional(Type.Number({ description: '运动时长 分钟' })),
+  calories: Type.Optional(Type.Number({ description: '消耗热量 kcal' })),
+  heartRateAvg: Type.Optional(Type.Number({ description: '平均心率 bpm' })),
+  heartRateMax: Type.Optional(Type.Number({ description: '最大心率 bpm' })),
+  distance: Type.Optional(Type.Number({ description: '距离 km' })),
+  note: Type.Optional(Type.String({ description: '备注' })),
+});
+
+/** 修改运动记录参数类型 */
+type UpdateExerciseParams = typeof UpdateExerciseParamsSchema;
+
+/**
  * 创建运动相关的 Agent 工具
  * 包含记录运动和查询运动记录两个工具
  * @param store 运动记录存储实例
@@ -66,7 +84,28 @@ export const createExerciseTools = (store: ExerciseStore, userId: string) => {
     queryFn: (options) => store.query(userId, options),
   });
 
-  return { recordExercise, queryExerciseRecords };
+  /**
+   * 修改运动记录工具
+   */
+  const updateExerciseRecord: AgentTool<UpdateExerciseParams> = {
+    name: 'update_exercise_record',
+    label: '修改运动记录',
+    description: '修改已有的运动记录。只需提供要修改的字段。',
+    parameters: UpdateExerciseParamsSchema,
+    execute: async (_toolCallId, params, _signal) => {
+      const { id, ...fields } = params;
+      const updates = Object.fromEntries(Object.entries(fields).filter(([_, v]) => v !== undefined));
+      if (Object.keys(updates).length === 0) return { content: [{ type: 'text', text: '没有需要修改的字段' }], details: {} };
+      try {
+        const record = await store.update(userId, id, updates);
+        return { content: [{ type: 'text', text: `已修改运动记录 ID ${id}` }], details: { record } };
+      } catch (err) {
+        return { content: [{ type: 'text', text: `修改失败: ${(err as Error).message}` }], details: {} };
+      }
+    },
+  };
+
+  return { recordExercise, queryExerciseRecords, updateExerciseRecord };
 };
 
 /**

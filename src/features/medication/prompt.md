@@ -2,6 +2,9 @@
 
 你可以帮助用户记录用药信息。
 
+## 工具
+`record_medication`、`update_medication_record`、`stop_medication`
+
 ## 可记录的信息
 - 药物名称（必填）
 - 剂量（如 "1片"、"10mg"）

@@ -47,6 +47,21 @@ const StopMedicationParamsSchema = Type.Object({
 type StopMedicationParams = typeof StopMedicationParamsSchema;
 
 /**
+ * 修改用药记录的参数 Schema
+ * 只需提供记录 ID 和要修改的字段
+ */
+const UpdateMedicationParamsSchema = Type.Object({
+  id: Type.Number({ description: '记录ID' }),
+  medication: Type.Optional(Type.String({ description: '药物名称' })),
+  dosage: Type.Optional(Type.String({ description: '剂量' })),
+  frequency: Type.Optional(Type.String({ description: '用药频次' })),
+  note: Type.Optional(Type.String({ description: '备注' })),
+});
+
+/** 修改用药记录参数类型 */
+type UpdateMedicationParams = typeof UpdateMedicationParamsSchema;
+
+/**
  * 创建用药相关的 Agent 工具
  * 包含记录用药、查询用药记录和标记停药三个工具
  * @param store 用药记录存储实例
@@ -120,7 +135,28 @@ export const createMedicationTools = (store: MedicationStore, userId: string) =>
     },
   };
 
-  return { recordMedication, queryMedicationRecords, stopMedication };
+  /**
+   * 修改用药记录工具
+   */
+  const updateMedicationRecord: AgentTool<UpdateMedicationParams> = {
+    name: 'update_medication_record',
+    label: '修改用药记录',
+    description: '修改已有的用药记录。只需提供要修改的字段。',
+    parameters: UpdateMedicationParamsSchema,
+    execute: async (_toolCallId, params, _signal) => {
+      const { id, ...fields } = params;
+      const updates = Object.fromEntries(Object.entries(fields).filter(([_, v]) => v !== undefined));
+      if (Object.keys(updates).length === 0) return { content: [{ type: 'text', text: '没有需要修改的字段' }], details: {} };
+      try {
+        const record = await store.update(userId, id, updates);
+        return { content: [{ type: 'text', text: `已修改用药记录 ID ${id}` }], details: { record } };
+      } catch (err) {
+        return { content: [{ type: 'text', text: `修改失败: ${(err as Error).message}` }], details: {} };
+      }
+    },
+  };
+
+  return { recordMedication, queryMedicationRecords, stopMedication, updateMedicationRecord };
 };
 
 /**

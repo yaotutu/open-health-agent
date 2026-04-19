@@ -32,6 +32,16 @@ export interface MedicationRecordData {
 }
 
 /**
+ * 用药记录更新数据接口
+ */
+export interface MedicationRecordUpdate {
+  medication?: string;
+  dosage?: string;
+  frequency?: string;
+  note?: string;
+}
+
+/**
  * 创建用药记录存储模块
  * 提供用药记录的存储和查询功能
  * @param db Drizzle ORM 数据库实例
@@ -114,7 +124,27 @@ export const createMedicationStore = (db: Db) => {
     return result[0];
   };
 
-  return { record, query, stop };
+  /**
+   * 更新用药记录
+   * 只更新提供的字段
+   */
+  const update = async (userId: string, medicationId: number, data: MedicationRecordUpdate): Promise<MedicationRecord> => {
+    const updateData: Partial<NewMedicationRecord> = {};
+    if (data.medication !== undefined) updateData.medication = data.medication;
+    if (data.dosage !== undefined) updateData.dosage = data.dosage;
+    if (data.frequency !== undefined) updateData.frequency = data.frequency;
+    if (data.note !== undefined) updateData.note = data.note;
+
+    const result = await db
+      .update(medicationRecords)
+      .set(updateData)
+      .where(and(eq(medicationRecords.id, medicationId), eq(medicationRecords.userId, userId)))
+      .returning();
+    if (result.length === 0) throw new Error(`用药记录不存在: ${medicationId}`);
+    return result[0];
+  };
+
+  return { record, query, stop, update };
 };
 
 /**

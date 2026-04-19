@@ -21,6 +21,21 @@ const RecordBodyParamsSchema = Type.Object({
 type RecordBodyParams = typeof RecordBodyParamsSchema;
 
 /**
+ * 修改身体数据记录的参数 Schema
+ * 只需提供记录 ID 和要修改的字段
+ */
+const UpdateBodyParamsSchema = Type.Object({
+  id: Type.Number({ description: '记录ID' }),
+  weight: Type.Optional(Type.Number({ description: '体重 kg' })),
+  bodyFat: Type.Optional(Type.Number({ description: '体脂率 %' })),
+  bmi: Type.Optional(Type.Number({ description: 'BMI' })),
+  note: Type.Optional(Type.String({ description: '备注' })),
+});
+
+/** 修改身体数据记录参数类型 */
+type UpdateBodyParams = typeof UpdateBodyParamsSchema;
+
+/**
  * 创建身体数据相关的 Agent 工具
  * 包含记录身体数据和查询身体数据记录两个工具
  * @param store 身体数据存储实例
@@ -60,7 +75,29 @@ export const createBodyTools = (store: BodyStore, userId: string) => {
     queryFn: (options) => store.query(userId, options),
   });
 
-  return { recordBody, queryBodyRecords };
+  /**
+   * 修改身体数据记录工具
+   * 只需提供要修改的字段和记录 ID
+   */
+  const updateBodyRecord: AgentTool<UpdateBodyParams> = {
+    name: 'update_body_record',
+    label: '修改身体记录',
+    description: '修改已有的身体数据记录。只需提供要修改的字段。',
+    parameters: UpdateBodyParamsSchema,
+    execute: async (_toolCallId, params, _signal) => {
+      const { id, ...fields } = params;
+      const updates = Object.fromEntries(Object.entries(fields).filter(([_, v]) => v !== undefined));
+      if (Object.keys(updates).length === 0) return { content: [{ type: 'text', text: '没有需要修改的字段' }], details: {} };
+      try {
+        const record = await store.update(userId, id, updates);
+        return { content: [{ type: 'text', text: `已修改身体记录 ID ${id}` }], details: { record } };
+      } catch (err) {
+        return { content: [{ type: 'text', text: `修改失败: ${(err as Error).message}` }], details: {} };
+      }
+    },
+  };
+
+  return { recordBody, queryBodyRecords, updateBodyRecord };
 };
 
 /**

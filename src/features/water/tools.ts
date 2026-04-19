@@ -19,6 +19,19 @@ const RecordWaterParamsSchema = Type.Object({
 type RecordWaterParams = typeof RecordWaterParamsSchema;
 
 /**
+ * 修改饮水记录的参数 Schema
+ * 只需提供记录 ID 和要修改的字段
+ */
+const UpdateWaterParamsSchema = Type.Object({
+  id: Type.Number({ description: '记录ID' }),
+  amount: Type.Optional(Type.Number({ description: '饮水量 ml' })),
+  note: Type.Optional(Type.String({ description: '备注' })),
+});
+
+/** 修改饮水记录参数类型 */
+type UpdateWaterParams = typeof UpdateWaterParamsSchema;
+
+/**
  * 创建饮水相关的 Agent 工具
  * 包含记录饮水和查询饮水记录两个工具
  * @param store 饮水记录存储实例
@@ -56,7 +69,28 @@ export const createWaterTools = (store: WaterStore, userId: string) => {
     queryFn: (options) => store.query(userId, options),
   });
 
-  return { recordWater, queryWaterRecords };
+  /**
+   * 修改饮水记录工具
+   */
+  const updateWaterRecord: AgentTool<UpdateWaterParams> = {
+    name: 'update_water_record',
+    label: '修改饮水记录',
+    description: '修改已有的饮水记录。只需提供要修改的字段。',
+    parameters: UpdateWaterParamsSchema,
+    execute: async (_toolCallId, params, _signal) => {
+      const { id, ...fields } = params;
+      const updates = Object.fromEntries(Object.entries(fields).filter(([_, v]) => v !== undefined));
+      if (Object.keys(updates).length === 0) return { content: [{ type: 'text', text: '没有需要修改的字段' }], details: {} };
+      try {
+        const record = await store.update(userId, id, updates);
+        return { content: [{ type: 'text', text: `已修改饮水记录 ID ${id}` }], details: { record } };
+      } catch (err) {
+        return { content: [{ type: 'text', text: `修改失败: ${(err as Error).message}` }], details: {} };
+      }
+    },
+  };
+
+  return { recordWater, queryWaterRecords, updateWaterRecord };
 };
 
 /**

@@ -26,6 +26,25 @@ const RecordDietParamsSchema = Type.Object({
 type RecordDietParams = typeof RecordDietParamsSchema;
 
 /**
+ * 修改饮食记录的参数 Schema
+ * 只需提供记录 ID 和要修改的字段
+ */
+const UpdateDietParamsSchema = Type.Object({
+  id: Type.Number({ description: '记录ID' }),
+  food: Type.Optional(Type.String({ description: '食物名称' })),
+  calories: Type.Optional(Type.Number({ description: '热量 kcal' })),
+  protein: Type.Optional(Type.Number({ description: '蛋白质 g' })),
+  carbs: Type.Optional(Type.Number({ description: '碳水化合物 g' })),
+  fat: Type.Optional(Type.Number({ description: '脂肪 g' })),
+  sodium: Type.Optional(Type.Number({ description: '钠 mg' })),
+  mealType: Type.Optional(Type.String({ description: '餐次' })),
+  note: Type.Optional(Type.String({ description: '备注' })),
+});
+
+/** 修改饮食记录参数类型 */
+type UpdateDietParams = typeof UpdateDietParamsSchema;
+
+/**
  * 创建饮食相关的 Agent 工具
  * 包含记录饮食和查询饮食记录两个工具
  * @param store 饮食记录存储实例
@@ -69,7 +88,28 @@ export const createDietTools = (store: DietStore, userId: string) => {
     queryFn: (options) => store.query(userId, options),
   });
 
-  return { recordDiet, queryDietRecords };
+  /**
+   * 修改饮食记录工具
+   */
+  const updateDietRecord: AgentTool<UpdateDietParams> = {
+    name: 'update_diet_record',
+    label: '修改饮食记录',
+    description: '修改已有的饮食记录。只需提供要修改的字段。',
+    parameters: UpdateDietParamsSchema,
+    execute: async (_toolCallId, params, _signal) => {
+      const { id, ...fields } = params;
+      const updates = Object.fromEntries(Object.entries(fields).filter(([_, v]) => v !== undefined));
+      if (Object.keys(updates).length === 0) return { content: [{ type: 'text', text: '没有需要修改的字段' }], details: {} };
+      try {
+        const record = await store.update(userId, id, updates);
+        return { content: [{ type: 'text', text: `已修改饮食记录 ID ${id}` }], details: { record } };
+      } catch (err) {
+        return { content: [{ type: 'text', text: `修改失败: ${(err as Error).message}` }], details: {} };
+      }
+    },
+  };
+
+  return { recordDiet, queryDietRecords, updateDietRecord };
 };
 
 /**

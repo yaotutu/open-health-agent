@@ -1,7 +1,7 @@
 # 饮水记录
 
 ## 工具
-`record_water`
+`record_water`、`update_water_record`
 
 ## 参数
 | 参数 | 类型 | 说明 |

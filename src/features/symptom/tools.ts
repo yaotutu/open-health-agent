@@ -37,6 +37,21 @@ const ResolveSymptomParamsSchema = Type.Object({
 type ResolveSymptomParams = typeof ResolveSymptomParamsSchema;
 
 /**
+ * 修改症状记录的参数 Schema
+ * 只需提供记录 ID 和要修改的字段
+ */
+const UpdateSymptomParamsSchema = Type.Object({
+  id: Type.Number({ description: '记录ID' }),
+  description: Type.Optional(Type.String({ description: '症状描述' })),
+  severity: Type.Optional(Type.Number({ description: '严重程度 1-10' })),
+  bodyPart: Type.Optional(Type.String({ description: '身体部位' })),
+  note: Type.Optional(Type.String({ description: '备注' })),
+});
+
+/** 修改症状记录参数类型 */
+type UpdateSymptomParams = typeof UpdateSymptomParamsSchema;
+
+/**
  * 创建症状相关的 Agent 工具
  * 包含记录症状、查询症状记录和标记症状已解决三个工具
  * @param store 症状记录存储实例
@@ -98,7 +113,28 @@ export const createSymptomTools = (store: SymptomStore, userId: string) => {
     },
   };
 
-  return { recordSymptom, querySymptomRecords, resolveSymptom };
+  /**
+   * 修改症状记录工具
+   */
+  const updateSymptomRecord: AgentTool<UpdateSymptomParams> = {
+    name: 'update_symptom_record',
+    label: '修改症状记录',
+    description: '修改已有的症状记录。只需提供要修改的字段。',
+    parameters: UpdateSymptomParamsSchema,
+    execute: async (_toolCallId, params, _signal) => {
+      const { id, ...fields } = params;
+      const updates = Object.fromEntries(Object.entries(fields).filter(([_, v]) => v !== undefined));
+      if (Object.keys(updates).length === 0) return { content: [{ type: 'text', text: '没有需要修改的字段' }], details: {} };
+      try {
+        const record = await store.update(userId, id, updates);
+        return { content: [{ type: 'text', text: `已修改症状记录 ID ${id}` }], details: { record } };
+      } catch (err) {
+        return { content: [{ type: 'text', text: `修改失败: ${(err as Error).message}` }], details: {} };
+      }
+    },
+  };
+
+  return { recordSymptom, querySymptomRecords, resolveSymptom, updateSymptomRecord };
 };
 
 /**

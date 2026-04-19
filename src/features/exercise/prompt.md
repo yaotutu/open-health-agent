@@ -1,7 +1,7 @@
 # 运动记录
 
 ## 工具
-`record_exercise`
+`record_exercise`、`update_exercise_record`
 
 ## 参数
 | 参数 | 类型 | 说明 |

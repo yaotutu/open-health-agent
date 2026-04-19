@@ -1,7 +1,7 @@
 # 身体数据记录
 
 ## 工具
-`record_body`
+`record_body`、`update_body_record`
 
 ## 参数
 | 参数 | 类型 | 说明 |

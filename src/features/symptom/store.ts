@@ -35,6 +35,16 @@ export interface SymptomRecordData {
 }
 
 /**
+ * 症状记录更新数据接口
+ */
+export interface SymptomRecordUpdate {
+  description?: string;
+  severity?: number;
+  bodyPart?: string;
+  note?: string;
+}
+
+/**
  * 创建症状记录存储模块
  * 提供身体不适、症状的记录和查询功能
  * 支持关联其他记录类型（如饮食、运动），帮助追踪症状诱因
@@ -111,7 +121,27 @@ export const createSymptomStore = (db: Db) => {
     return result[0];
   };
 
-  return { record, query, resolve };
+  /**
+   * 更新症状记录
+   * 只更新提供的字段
+   */
+  const update = async (userId: string, symptomId: number, data: SymptomRecordUpdate): Promise<SymptomRecord> => {
+    const updateData: Partial<NewSymptomRecord> = {};
+    if (data.description !== undefined) updateData.description = data.description;
+    if (data.severity !== undefined) updateData.severity = data.severity;
+    if (data.bodyPart !== undefined) updateData.bodyPart = data.bodyPart;
+    if (data.note !== undefined) updateData.note = data.note;
+
+    const result = await db
+      .update(symptomRecords)
+      .set(updateData)
+      .where(and(eq(symptomRecords.id, symptomId), eq(symptomRecords.userId, userId)))
+      .returning();
+    if (result.length === 0) throw new Error(`症状记录不存在: ${symptomId}`);
+    return result[0];
+  };
+
+  return { record, query, resolve, update };
 };
 
 /**
