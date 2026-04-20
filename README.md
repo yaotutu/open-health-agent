@@ -222,3 +222,11 @@ src/
 ## License
 
 MIT
+
+## 相关项目
+
+| 项目 | 说明 |
+|------|------|
+| [open-health-agent](https://github.com/yaotutu/open-health-agent) | AI 健康助手（本项目） |
+| [pure-wechat-bot](https://github.com/yaotutu/pure-wechat-bot) | 微信 iLink Bot 协议客户端 |
+| [pure-qqbot](https://github.com/yaotutu/pure-qqbot) | QQ Bot 协议客户端 |
