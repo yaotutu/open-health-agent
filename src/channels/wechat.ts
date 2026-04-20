@@ -1,8 +1,8 @@
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { writeFileSync, unlinkSync, existsSync } from 'node:fs';
-import { WeChatClient, MessageType } from 'pure-wechat-bot';
-import type { WeixinMessage } from 'pure-wechat-bot';
+import { WeChatClient, MessageType } from 'pure-wechatbot';
+import type { WeixinMessage } from 'pure-wechatbot';
 import type { DeliverableChannel, MessageHandler, ChannelMessage, ChannelContext } from './types';
 import { createLogger } from '../infrastructure/logger';
 const log = createLogger('wechat');
@@ -24,7 +24,7 @@ export interface WeChatChannelOptions {
 
 /**
  * 微信渠道适配器
- * 使用 pure-wechat-bot 库连接微信 iLink Bot 服务器
+ * 使用 pure-wechatbot 库连接微信 iLink Bot 服务器
  * 架构：OHA ←HTTP 长轮询→ 微信 iLink Bot 服务器 ←→ 微信客户端
  *
  * wechat-ilink 提供 CDN 加密上传、发送图片、打字指示器等能力。
@@ -145,7 +145,7 @@ export class WeChatChannel implements DeliverableChannel {
       msg.item_list?.length || 0,
     );
 
-    // 使用 pure-wechat-bot 提供的 extractText 提取文本
+    // 使用 pure-wechatbot 提供的 extractText 提取文本
     const text = WeChatClient.extractText(msg);
 
     // 下载图片并转为 base64

@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { WeChatClient } from 'pure-wechat-bot';
+import { WeChatClient } from 'pure-wechatbot';
 import type { BotManager } from '../bot/bot-manager';
 import { createLogger } from '../infrastructure/logger';
 const log = createLogger('wechat');
