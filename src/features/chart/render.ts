@@ -20,33 +20,58 @@ const FONT_FILE = join(dirname(fileURLToPath(import.meta.url)), 'fonts', 'LXGWNe
 
 /**
  * 默认 Vega-Lite 配置
- * 提供干净的图表基础样式，LLM 仍可通过 spec 覆盖
+ * 设计目标：手机端友好的健康数据图表，清爽、易读、有质感
  */
 const DEFAULT_VL_CONFIG = {
-  // 使用自定义字体（中英文混排友好）
   font: 'LXGW NeoXiHei',
+  paddingLeft: 50,
+  paddingRight: 20,
+  paddingTop: 10,
+  paddingBottom: 30,
   title: {
     font: 'LXGW NeoXiHei',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: 'bold',
     anchor: 'start' as const,
-    offset: 10,
+    offset: 8,
+    color: '#1a1a2e',
   },
   axis: {
     titleFont: 'LXGW NeoXiHei',
     labelFont: 'LXGW NeoXiHei',
     titleFontSize: 12,
+    titleColor: '#555',
     labelFontSize: 11,
-    gridColor: '#e8e8e8',
-    domainColor: '#ccc',
+    labelColor: '#666',
+    gridColor: '#f0f0f0',
+    gridWidth: 1,
+    domain: false,
+    tickSize: 0,
+    labelPadding: 6,
+    titlePadding: 8,
   },
+  // Y 轴不强制从 0 开始，让体重/血压等数据的变化更明显
+  scale: { zero: false, nice: true },
   legend: {
     titleFont: 'LXGW NeoXiHei',
     labelFont: 'LXGW NeoXiHei',
+    labelFontSize: 12,
+    symbolSize: 100,
   },
-  // 清爽的配色方案
   range: {
-    category: ['#4e79a7', '#f28e2b', '#e15759', '#76b7b2', '#59a14f', '#edc948', '#b07aa1', '#ff9da7'],
+    category: ['#4e79a7', '#59a14f', '#f28e2b', '#e15759', '#76b7b2', '#edc948', '#b07aa1', '#ff9da7'],
+  },
+  line: {
+    strokeWidth: 2.5,
+    // 折线图默认显示数据点
+    point: { size: 40, filled: true },
+  },
+  bar: {
+    cornerRadiusTopLeft: 3,
+    cornerRadiusTopRight: 3,
+  },
+  area: {
+    fillOpacity: 0.15,
   },
   view: {
     stroke: null,

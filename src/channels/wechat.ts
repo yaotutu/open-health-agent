@@ -191,10 +191,9 @@ export class WeChatChannel implements DeliverableChannel {
     const context: ChannelContext = {
       send: async (text: string) => {
         log.info('sending reply to=%s textLen=%d', fromUserId.slice(0, 20), text.length);
-        await this.client.sendText(fromUserId, text, msg.context_token || undefined);
+        await this.client.sendText(fromUserId, text);
         log.info('reply sent msgId=%s', channelMsg.id);
       },
-      // 发送图片：写入临时文件 → sendMedia 自动上传加密并发送
       sendImage: async (base64Data: string, _mimeType: string) => {
         const tempPath = join(tmpdir(), `oha-chart-${Date.now()}.png`);
         try {
@@ -202,8 +201,7 @@ export class WeChatChannel implements DeliverableChannel {
           writeFileSync(tempPath, rawBuffer);
           log.info('sendImage: wrote temp file path=%s size=%d', tempPath, rawBuffer.length);
 
-          // sendMedia 会自动完成 AES 加密、CDN 上传、构造正确的 sendMessage 请求
-          await this.client.sendMedia(fromUserId, tempPath, undefined, msg.context_token || undefined);
+          await this.client.sendImage(fromUserId, tempPath);
           log.info('image sent raw=%d', rawBuffer.length);
         } catch (err) {
           log.error('sendImage failed error=%s', (err as Error).message);
@@ -216,9 +214,7 @@ export class WeChatChannel implements DeliverableChannel {
       },
       sendTyping: async () => {
         try {
-          // 先获取 typing ticket，再发送打字指示器
-          const ticket = await this.client.getTypingTicket(fromUserId, msg.context_token || undefined);
-          await this.client.sendTyping(fromUserId, ticket, 'typing');
+          await this.client.sendTyping(fromUserId);
         } catch (err) {
           log.error('sendTyping failed error=%s', (err as Error).message);
         }
