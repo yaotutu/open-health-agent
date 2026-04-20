@@ -108,7 +108,7 @@ AI 自动提取数据、关联历史记录、给出个性化分析和建议。
 - **Web 框架**: Hono
 - **Web 前端**: Vue 3 + Vite
 - **QQ Bot**: pure-qqbot
-- **微信**: weixin-ilink
+- **微信**: pure-wechatbot
 
 ## 快速开始
 

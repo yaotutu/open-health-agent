@@ -27,7 +27,7 @@ export interface WeChatChannelOptions {
  * 使用 pure-wechatbot 库连接微信 iLink Bot 服务器
  * 架构：OHA ←HTTP 长轮询→ 微信 iLink Bot 服务器 ←→ 微信客户端
  *
- * wechat-ilink 提供 CDN 加密上传、发送图片、打字指示器等能力。
+ * pure-wechatbot 提供 CDN 加密上传、发送图片、打字指示器等能力。
  */
 export class WeChatChannel implements DeliverableChannel {
   readonly name = 'wechat';
