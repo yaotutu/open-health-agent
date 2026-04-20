@@ -134,6 +134,16 @@ export class QQChannel implements DeliverableChannel {
       };
 
       const context: ChannelContext = {
+        // 发送图片（base64 → data URL → QQ 富媒体上传）
+        sendImage: async (base64Data: string, mimeType: string) => {
+          try {
+            const dataUrl = `data:${mimeType};base64,${base64Data}`;
+            await this.client.sendPrivateImage(event.senderId, dataUrl);
+          } catch (err) {
+            log.error('sendImage failed error=%s', (err as Error).message);
+          }
+        },
+
         // 完整文本回复（流式失败时的降级兜底）
         send: async (text: string) => {
           await this.client.reply(event, text);

@@ -162,6 +162,15 @@ export class WebSocketChannel implements DeliverableChannel {
         this.sendToWs(ws, { type: 'event', event: createMessageEndEvent(text) });
         this.sendToWs(ws, { type: 'done' });
       },
+
+      // 发送图片（base64）
+      sendImage: async (base64Data: string, mimeType: string) => {
+        this.sendToWs(ws, {
+          type: 'image',
+          imageData: base64Data,
+          imageMimeType: mimeType,
+        });
+      },
     };
 
     await this.messageHandler(channelMsg, context);

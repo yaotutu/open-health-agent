@@ -5,7 +5,7 @@ import { createLogger } from '../infrastructure/logger';
 const log = createLogger('handler');
 import { withTimeContext, formatDate } from '../infrastructure/time';
 import { assembleSystemPrompt } from '../prompts/assembler';
-import { extractAssistantText } from '../agent/event-utils';
+import { extractAssistantText, extractToolImages } from '../agent/event-utils';
 import { generateConversationSummary } from '../session';
 import { consolidateMemories } from '../session/consolidate';
 import { config } from '../config';
@@ -92,7 +92,7 @@ export const createMessageHandler = (options: CreateMessageHandlerOptions) => {
       const agent = await createAgent(userId, messages);
       onAgentCreated?.(agent);
 
-      // 4. 订阅事件：捕获完整响应 + 流式转发 text_delta
+      // 4. 订阅事件：捕获完整响应 + 流式转发 text_delta + 拦截工具图片
       let assistantMessage: any = null;
       const isStreaming = !!context.capabilities?.streaming;
       const unsubscribe = agent.subscribe((event) => {
@@ -106,6 +106,19 @@ export const createMessageHandler = (options: CreateMessageHandlerOptions) => {
             context.sendStream?.(assistantEvent.delta, false).catch((err: Error) => {
               log.error('stream delta failed error=%s', err.message);
             });
+          }
+        }
+        // 工具执行完成：检查是否包含图片（如 generate_chart），通过通道发送
+        if (event.type === 'tool_execution_end') {
+          const { toolName, result } = event as any;
+          const images = extractToolImages(result);
+          if (images.length > 0) {
+            for (const img of images) {
+              context.sendImage?.(img.data, img.mimeType).catch((err: Error) => {
+                log.error('tool image send failed tool=%s error=%s', toolName, err.message);
+              });
+            }
+            log.debug('tool images sent tool=%s count=%d', toolName, images.length);
           }
         }
       });

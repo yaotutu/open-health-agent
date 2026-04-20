@@ -43,6 +43,7 @@ const SKILL_CATALOG: Record<string, { keywords: string }> = {
   cron:        { keywords: '每天提醒、每周报告' },
   profile:     { keywords: '身高、年龄、性别' },
   memory:      { keywords: '记住这个、我的偏好' },
+  chart:       { keywords: '看图、图表、趋势、统计图、折线图、柱状图、饼图、可视化、给我看看、画图、变化趋势' },
 };
 
 /** 功能模块所在目录 */

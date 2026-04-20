@@ -13,6 +13,7 @@ import { createHeartbeatTools, createHeartbeatSimpleQuery } from '../features/he
 import { createCronTools, createCronSimpleQuery } from '../cron/tools';
 import type { CronService } from '../cron/service';
 import { createSkillTool } from './skill-tool';
+import { createChartTools } from '../features/chart/tools';
 import type { AgentTool } from '@mariozechner/pi-agent-core';
 
 /**
@@ -106,6 +107,8 @@ export const getSkillTools = (
       return cast(Object.values(createMedicationTools(store.medication, userId)));
     case 'chronic':
       return cast(Object.values(createChronicTools(store.chronic, userId)));
+    case 'chart':
+      return cast(Object.values(createChartTools()));
     case 'heartbeat':
       return cast(Object.values(createHeartbeatTools(store.heartbeatTask, userId)));
     case 'cron':

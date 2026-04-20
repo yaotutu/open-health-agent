@@ -75,6 +75,8 @@ export interface ChannelContext {
    *  @param done 是否为最后一块，true 时表示流结束
    */
   sendStream?(text: string, done: boolean): Promise<void>;
+  /** 发送图片响应（base64 编码） */
+  sendImage?(base64Data: string, mimeType: string): Promise<void>;
   /** 通知通道开始处理（如"正在输入..."指示器） */
   sendTyping?(): Promise<void>;
   /** 通道能力声明 */
@@ -111,7 +113,11 @@ export interface ClientMessage {
 }
 
 export interface ServerMessage {
-  type: 'event' | 'error' | 'done' | 'aborted';
+  type: 'event' | 'error' | 'done' | 'aborted' | 'image';
   event?: AgentEvent;
   error?: string;
+  /** 图片数据（base64） */
+  imageData?: string;
+  /** 图片 MIME 类型 */
+  imageMimeType?: string;
 }
