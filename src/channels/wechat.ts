@@ -1,5 +1,8 @@
-import { ILinkClient, MessageType, MessageItemType } from 'weixin-ilink';
-import type { WeixinMessage } from 'weixin-ilink';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { writeFileSync, unlinkSync, existsSync } from 'node:fs';
+import { WeChatClient, MessageType } from 'pure-wechat-bot';
+import type { WeixinMessage } from 'pure-wechat-bot';
 import type { DeliverableChannel, MessageHandler, ChannelMessage, ChannelContext } from './types';
 import { createLogger } from '../infrastructure/logger';
 const log = createLogger('wechat');
@@ -21,44 +24,67 @@ export interface WeChatChannelOptions {
 
 /**
  * 微信渠道适配器
- * 使用 weixin-ilink 库内嵌连接微信 iLink Bot 服务器
- * 与 QQ 渠道模式相同：嵌入 SDK、长轮询接收消息、HTTP 发送回复
- *
+ * 使用 pure-wechat-bot 库连接微信 iLink Bot 服务器
  * 架构：OHA ←HTTP 长轮询→ 微信 iLink Bot 服务器 ←→ 微信客户端
+ *
+ * wechat-ilink 提供 CDN 加密上传、发送图片、打字指示器等能力。
  */
 export class WeChatChannel implements DeliverableChannel {
   readonly name = 'wechat';
-  private client: ILinkClient;
+  private client: WeChatClient;
   private messageHandler?: MessageHandler;
-  private abortController?: AbortController;
   /** 从入站消息中缓存的微信用户 ID（如 o9cq800kum_xxx@im.wechat），用于主动推送 */
   private cachedWechatUserId: string | null = null;
-  /** 缓存最后一条消息的 contextToken，用于主动推送 */
-  private cachedContextToken: string | null = null;
+  /** 缓存的同步游标，通过 saveSyncBuf 回调更新，供 getCursor() 外部持久化 */
+  private syncCursor: string = '';
 
   constructor(options: WeChatChannelOptions) {
-    this.client = new ILinkClient({
-      baseUrl: options.baseUrl,
+    this.client = new WeChatClient({
       token: options.botToken,
+      baseUrl: options.baseUrl,
+      accountId: options.accountId,
     });
     // 恢复上次的同步游标，避免重启后重复处理消息
     if (options.cursor) {
-      this.client.cursor = options.cursor;
+      this.syncCursor = options.cursor;
       log.info('cursor restored cursor=%s...', options.cursor.slice(0, 20));
     }
     log.info('channel created baseUrl=%s accountId=%s', options.baseUrl, options.accountId || '(none)');
   }
 
   async start(): Promise<void> {
-    this.abortController = new AbortController();
-    // 启动消息轮询循环（后台运行，不阻塞 start()）
-    this.pollLoop();
+    // 注册消息事件处理器
+    this.client.on('message', async (msg: WeixinMessage) => {
+      // 只处理用户消息（message_type=1），忽略 BOT 类型（自己发出的）
+      if (msg.message_type === MessageType.USER) {
+        await this.processMessage(msg);
+      }
+    });
+
+    this.client.on('error', (err: Error) => {
+      log.error('client error: %s', err.message);
+    });
+
+    this.client.on('sessionExpired', () => {
+      log.warn('session expired, bot will pause automatically');
+    });
+
+    // 启动长轮询循环（fire-and-forget：client.start() 阻塞直到 stop()，不能 await）
+    this.client.start({
+      loadSyncBuf: () => this.syncCursor || undefined,
+      saveSyncBuf: (buf: string) => {
+        this.syncCursor = buf;
+        log.debug('sync cursor updated len=%d', buf.length);
+      },
+    }).catch((err: Error) => {
+      log.error('poll loop crashed: %s', err.message);
+    });
     log.info('channel started polling');
   }
 
   async stop(): Promise<void> {
-    this.abortController?.abort();
-    log.info('channel stopped cursor=%s', this.client.cursor.slice(0, 20));
+    this.client.stop();
+    log.info('channel stopped cursor=%s', this.syncCursor.slice(0, 20));
   }
 
   onMessage(handler: MessageHandler): void {
@@ -79,9 +105,8 @@ export class WeChatChannel implements DeliverableChannel {
     }
 
     try {
-      const contextToken = this.cachedContextToken || '';
       log.info('pushing to userId=%s wechatUserId=%s textLen=%d', userId, this.cachedWechatUserId, text.length);
-      await this.client.sendTextChunked(this.cachedWechatUserId, text, contextToken);
+      await this.client.sendText(this.cachedWechatUserId, text);
       log.info('push sent userId=%s', userId);
       return true;
     } catch (err) {
@@ -94,37 +119,7 @@ export class WeChatChannel implements DeliverableChannel {
    * 获取当前同步游标，供外部持久化（BotManager 在 stop 时调用）
    */
   getCursor(): string {
-    return this.client.cursor;
-  }
-
-  /**
-   * 消息轮询循环
-   * 持续调用 ILinkClient.poll() 获取新消息
-   * poll() 内部使用 HTTP 长轮询（35s 超时），无消息时自动返回空数组
-   * 出错时等待 5 秒后重试，避免密集重试
-   */
-  private async pollLoop(): Promise<void> {
-    log.info('poll loop started');
-    while (!this.abortController?.signal.aborted) {
-      try {
-        const resp = await this.client.poll();
-
-        if (resp.msgs && resp.msgs.length > 0) {
-          log.info('poll returned %d messages', resp.msgs.length);
-          for (const msg of resp.msgs) {
-            // 只处理用户消息（不处理 BOT 类型，那是自己发出的）
-            if (msg.message_type === MessageType.USER) {
-              await this.processMessage(msg);
-            }
-          }
-        }
-      } catch (err) {
-        log.error('poll error: %s', (err as Error).message);
-        // 出错后等待 5 秒再重试，避免密集重试消耗资源
-        await this.sleep(5000);
-      }
-    }
-    log.info('poll loop ended');
+    return this.syncCursor;
   }
 
   /**
@@ -142,9 +137,6 @@ export class WeChatChannel implements DeliverableChannel {
     if (fromUserId) {
       this.cachedWechatUserId = fromUserId;
     }
-    if (msg.context_token) {
-      this.cachedContextToken = msg.context_token;
-    }
 
     log.info('processing message msgId=%s from=%s type=%d items=%d',
       msg.message_id || msg.seq,
@@ -153,26 +145,23 @@ export class WeChatChannel implements DeliverableChannel {
       msg.item_list?.length || 0,
     );
 
-    // 从 item_list 提取文本和图片
-    let text = '';
-    const images: Array<{ data: string; mimeType: string }> = [];
+    // 使用 pure-wechat-bot 提供的 extractText 提取文本
+    const text = WeChatClient.extractText(msg);
 
+    // 下载图片并转为 base64
+    const images: Array<{ data: string; mimeType: string }> = [];
     if (msg.item_list) {
       for (const item of msg.item_list) {
-        if (item.type === MessageItemType.TEXT && item.text_item?.text) {
-          text += item.text_item.text;
-        } else if (item.type === MessageItemType.IMAGE && (item.image_item?.url || item.image_item?.cdn_url)) {
-          // 下载图片并转为 base64
-          const imageUrl = item.image_item?.url || item.image_item?.cdn_url || '';
+        if (WeChatClient.isMediaItem(item) && item.image_item) {
           try {
-            log.info('downloading image url=%s...', imageUrl.slice(0, 60));
-            const response = await fetch(imageUrl);
-            const buffer = await response.arrayBuffer();
-            const base64 = Buffer.from(buffer).toString('base64');
-            images.push({ data: base64, mimeType: 'image/jpeg' });
-            log.info('image downloaded size=%d bytes', buffer.byteLength);
+            const downloaded = await this.client.downloadMedia(item);
+            if (downloaded) {
+              const base64 = downloaded.data.toString('base64');
+              images.push({ data: base64, mimeType: 'image/jpeg' });
+              log.info('image downloaded size=%d bytes', downloaded.data.length);
+            }
           } catch (err) {
-            log.error('image download failed url=%s error=%s', imageUrl.slice(0, 60), (err as Error).message);
+            log.error('image download failed error=%s', (err as Error).message);
           }
         }
       }
@@ -198,16 +187,38 @@ export class WeChatChannel implements DeliverableChannel {
 
     log.info('dispatching message msgId=%s textLen=%d images=%d', channelMsg.id, text.length, images.length);
 
-    // 构造 ChannelContext，微信不支持流式，实现 send() + sendTyping()
+    // 构造 ChannelContext，微信不支持流式，实现 send() + sendImage() + sendTyping()
     const context: ChannelContext = {
       send: async (text: string) => {
         log.info('sending reply to=%s textLen=%d', fromUserId.slice(0, 20), text.length);
-        await this.client.sendText(fromUserId, text, msg.context_token || '');
+        await this.client.sendText(fromUserId, text, msg.context_token || undefined);
         log.info('reply sent msgId=%s', channelMsg.id);
+      },
+      // 发送图片：写入临时文件 → sendMedia 自动上传加密并发送
+      sendImage: async (base64Data: string, _mimeType: string) => {
+        const tempPath = join(tmpdir(), `oha-chart-${Date.now()}.png`);
+        try {
+          const rawBuffer = Buffer.from(base64Data, 'base64');
+          writeFileSync(tempPath, rawBuffer);
+          log.info('sendImage: wrote temp file path=%s size=%d', tempPath, rawBuffer.length);
+
+          // sendMedia 会自动完成 AES 加密、CDN 上传、构造正确的 sendMessage 请求
+          await this.client.sendMedia(fromUserId, tempPath, undefined, msg.context_token || undefined);
+          log.info('image sent raw=%d', rawBuffer.length);
+        } catch (err) {
+          log.error('sendImage failed error=%s', (err as Error).message);
+        } finally {
+          // 清理临时文件
+          if (existsSync(tempPath)) {
+            try { unlinkSync(tempPath); } catch { /* ignore cleanup errors */ }
+          }
+        }
       },
       sendTyping: async () => {
         try {
-          await this.client.sendTyping(fromUserId, msg.context_token || '');
+          // 先获取 typing ticket，再发送打字指示器
+          const ticket = await this.client.getTypingTicket(fromUserId, msg.context_token || undefined);
+          await this.client.sendTyping(fromUserId, ticket, 'typing');
         } catch (err) {
           log.error('sendTyping failed error=%s', (err as Error).message);
         }
@@ -215,10 +226,6 @@ export class WeChatChannel implements DeliverableChannel {
     };
 
     await this.messageHandler(channelMsg, context);
-  }
-
-  private sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
   }
 }
 

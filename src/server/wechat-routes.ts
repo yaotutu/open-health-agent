@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { loginWithQR } from 'weixin-ilink';
+import { WeChatClient } from 'pure-wechat-bot';
 import type { BotManager } from '../bot/bot-manager';
 import { createLogger } from '../infrastructure/logger';
 const log = createLogger('wechat');
@@ -43,7 +43,7 @@ export function createWechatRoutes(botManager: BotManager): Hono {
   /**
    * POST /qrcode
    * 生成微信 QR 码，启动扫码登录流程
-   * 后台运行 loginWithQR()，扫码成功后检查是否需要二次确认
+   * 后台运行 WeChatClient.login()，扫码成功后检查是否需要二次确认
    */
   router.post('/qrcode', async (c) => {
     const loginId = `wechat-${Date.now()}`;
@@ -58,31 +58,40 @@ export function createWechatRoutes(botManager: BotManager): Hono {
 
     log.info('QR login session created loginId=%s', loginId);
 
+    // 创建临时 client 用于 QR 登录（不需要预置 token）
+    const loginClient = new WeChatClient();
+
     // 后台启动 QR 登录流程
-    loginWithQR({
-      onQRCode: (url) => {
+    loginClient.login({
+      onQRCode: (url: string) => {
         log.info('QR code generated loginId=%s', loginId);
         state.qrCodeUrl = url;
         state.resolveQR?.(url);
       },
-      onStatusChange: (status) => {
+      onStatus: (status: string) => {
         log.info('login status change loginId=%s status=%s', loginId, status);
-        if (status === 'scanned') {
+        if (status === 'scaned') {
           state.status = 'scanned';
-        } else if (status === 'refreshing') {
+        } else if (status === 'expired') {
           // QR 过期后自动刷新，状态重置为 waiting
           state.status = 'waiting';
-        } else if (status === 'waiting') {
+        } else if (status === 'wait') {
           state.status = 'waiting';
         }
       },
     }).then(async (result) => {
+      if (!result.connected) {
+        log.error('login failed loginId=%s message=%s', loginId, result.message);
+        state.error = result.message;
+        state.status = 'error';
+        return;
+      }
       log.info('login confirmed loginId=%s accountId=%s ilinkUserId=%s', loginId, result.accountId, result.userId);
       try {
         const credentials: Record<string, string> = {
-          botToken: result.botToken,
-          baseUrl: result.baseUrl,
-          accountId: result.accountId,
+          botToken: result.botToken!,
+          baseUrl: result.baseUrl!,
+          accountId: result.accountId || '',
           ilinkUserId: result.userId || '',
         };
 
@@ -97,13 +106,13 @@ export function createWechatRoutes(botManager: BotManager): Hono {
         state.error = (err as Error).message;
         state.status = 'error';
       }
-    }).catch((err) => {
+    }).catch((err: Error) => {
       log.error('QR login failed loginId=%s error=%s', loginId, err.message);
       state.error = err.message;
       state.status = 'error';
     });
 
-    // 等待 QR URL 就绪后返回（loginWithQR 会异步生成 QR 码）
+    // 等待 QR URL 就绪后返回（login 会异步生成 QR 码）
     const qrCodeUrl = await qrPromise;
 
     return c.json({ loginId, qrCodeUrl });
